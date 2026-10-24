@@ -1,0 +1,68 @@
+.questionInputContainer {
+    border-radius: 1.5rem;
+    min-height: 2.75rem;
+    box-shadow:
+        0px 0.5rem 1.5rem rgba(0, 0, 0, 0.25),
+        0px 0px 0.5rem rgba(108, 99, 255, 0.1);
+    width: 100%;
+    padding: 0.4rem 0.5rem 0.4rem 1.2rem;
+    background: rgba(22, 33, 62, 0.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(108, 99, 255, 0.15);
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+    align-items: center;
+}
+
+.questionInputContainer:focus-within {
+    border-color: rgba(108, 99, 255, 0.5);
+    box-shadow:
+        0px 0.5rem 1.5rem rgba(0, 0, 0, 0.25),
+        0px 0px 1rem rgba(108, 99, 255, 0.2);
+}
+
+.questionInputTextArea {
+    width: 100%;
+    line-height: 1.5rem;
+    color: #f2f2f2;
+}
+
+.questionInputTextArea :global(.ms-TextField-fieldGroup) {
+    background: transparent !important;
+    border: none !important;
+}
+
+.questionInputTextArea :global(.ms-TextField-field) {
+    background: transparent !important;
+    color: #f2f2f2 !important;
+}
+
+.questionInputTextArea :global(.ms-TextField-field)::placeholder {
+    color: rgba(242, 242, 242, 0.4);
+}
+
+.questionInputTextArea :global(.ms-TextField-wrapper) {
+    background: transparent !important;
+}
+
+.questionInputTextArea :global(.ms-TextField) {
+    background: transparent !important;
+}
+
+.questionInputButtonsContainer {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.questionInputButtonsContainer :global(.fui-Button) {
+    background: transparent !important;
+}
+
+@media (min-width: 992px) {
+    .questionInputContainer {
+        min-height: 3.5rem;
+    }
+}

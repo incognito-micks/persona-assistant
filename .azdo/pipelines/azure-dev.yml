@@ -1,0 +1,48 @@
+# Run explicitly. Configure azconnection to use workload identity federation.
+trigger: none
+pr: none
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  - checkout: self
+
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: "3.12"
+
+  - task: NodeTool@0
+    inputs:
+      versionSpec: "22.x"
+
+  - task: setup-azd@0
+    displayName: Install azd
+
+  - bash: |
+      set -eu
+      python -m venv .venv
+      .venv/bin/python -m pip install -r scripts/requirements.txt
+      .venv/bin/python scripts/deploy_preflight.py --validate-local
+      echo "##vso[task.prependpath]$PWD/.venv/bin"
+    displayName: Install hook dependencies and validate local inputs
+
+  - task: AzureCLI@2
+    displayName: Provision and deploy Persona Assistant
+    inputs:
+      azureSubscription: azconnection
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: |
+        set -eu
+        azd config set auth.useAzCliAuth true
+        azd provision --no-prompt
+        azd deploy --no-prompt
+    env:
+      AZURE_SUBSCRIPTION_ID: $[ variables.AZURE_SUBSCRIPTION_ID ]
+      AZURE_TENANT_ID: $[ variables.AZURE_TENANT_ID ]
+      AZURE_ENV_NAME: $[ variables.AZURE_ENV_NAME ]
+      AZURE_LOCATION: $[ variables.AZURE_LOCATION ]
+      AZURE_CLIENT_APP_ID: $[ variables.AZURE_CLIENT_APP_ID ]
+      ADMIN_USER_OID: $[ variables.ADMIN_USER_OID ]
+      DISABLE_PUBLIC_ACCESS: $[ variables.DISABLE_PUBLIC_ACCESS ]

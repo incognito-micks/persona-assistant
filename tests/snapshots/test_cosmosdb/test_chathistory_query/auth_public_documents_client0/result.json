@@ -1,0 +1,13 @@
+{
+    "continuation_token": "next",
+    "sessions": [
+        {
+            "display_name": "Test User",
+            "email": "test@example.com",
+            "entra_oid": "OID_X",
+            "id": "123",
+            "timestamp": 123456789,
+            "title": "This is a test message"
+        }
+    ]
+}

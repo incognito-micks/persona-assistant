@@ -1,0 +1,586 @@
+from copy import deepcopy
+from unittest import mock
+
+import pytest
+from azure.core import MatchConditions
+from azure.cosmos import PartitionKey
+from azure.cosmos.aio import ContainerProxy
+from azure.cosmos.exceptions import (
+    CosmosHttpResponseError,
+    CosmosResourceExistsError,
+    CosmosResourceNotFoundError,
+)
+from quart import Quart
+
+from admin import settings_cosmosdb
+from config import (
+    CONFIG_ADMIN_SETTINGS_CACHE,
+    CONFIG_ADMIN_USER_OID,
+    CONFIG_AUTH_CLIENT,
+    CONFIG_COSMOS_ANALYTICS_CONTAINER,
+    CONFIG_COSMOS_SETTINGS_CONTAINER,
+    CONFIG_CREDENTIAL,
+)
+
+
+@pytest.fixture(autouse=True)
+def isolate_settings_storage(monkeypatch):
+    for variable in (
+        "AZURE_COSMOSDB_ACCOUNT",
+        "AZURE_ADMIN_SETTINGS_DATABASE",
+        "AZURE_CHAT_HISTORY_DATABASE",
+        "AZURE_ADMIN_SETTINGS_CONTAINER",
+        "AZURE_ANALYTICS_CONTAINER",
+    ):
+        monkeypatch.delenv(variable, raising=False)
+    monkeypatch.setattr(
+        settings_cosmosdb,
+        "CosmosClient",
+        mock.Mock(side_effect=AssertionError("Cosmos must be mocked in settings tests")),
+    )
+
+
+@pytest.fixture
+def admin_app_factory():
+    def create_app(container=None, settings=None):
+        app = Quart(__name__)
+        app.config.update(
+            {
+                "TESTING": True,
+                CONFIG_ADMIN_USER_OID: "admin-oid",
+                CONFIG_AUTH_CLIENT: mock.Mock(
+                    get_auth_claims_if_enabled=mock.AsyncMock(return_value={"oid": "admin-oid", "auth_provider": "aad"})
+                ),
+                CONFIG_CREDENTIAL: mock.Mock(),
+                CONFIG_ADMIN_SETTINGS_CACHE: deepcopy(
+                    settings_cosmosdb.DEFAULT_SETTINGS if settings is None else settings
+                ),
+                CONFIG_COSMOS_SETTINGS_CONTAINER: container,
+            }
+        )
+        app.register_blueprint(settings_cosmosdb.admin_settings_bp)
+        return app
+
+    return create_app
+
+
+@pytest.fixture
+def settings_container():
+    container = mock.Mock(spec=ContainerProxy)
+    container.document = {**deepcopy(settings_cosmosdb.DEFAULT_SETTINGS), "_etag": '"version-1"'}
+    container.revision = 1
+
+    async def read_item(item, partition_key):
+        assert item == partition_key == "admin_settings"
+        return deepcopy(container.document)
+
+    async def replace_item(item, body, *, etag, match_condition):
+        assert item == body["id"] == "admin_settings"
+        assert match_condition == MatchConditions.IfNotModified
+        if etag != container.document["_etag"]:
+            raise CosmosHttpResponseError(status_code=412, message="Settings changed")
+        container.revision += 1
+        container.document = {**deepcopy(body), "_etag": f'"version-{container.revision}"'}
+        return deepcopy(container.document)
+
+    container.read_item = mock.AsyncMock(side_effect=read_item)
+    container.replace_item = mock.AsyncMock(side_effect=replace_item)
+    return container
+
+
+@pytest.fixture
+def cosmos_setup(monkeypatch, settings_container):
+    analytics_container = mock.Mock(read=mock.AsyncMock())
+    database = mock.Mock(create_container_if_not_exists=mock.AsyncMock(return_value=analytics_container))
+    database.get_container_client.side_effect = {
+        "admin_settings": settings_container,
+        "analytics": analytics_container,
+    }.__getitem__
+    client = mock.Mock(close=mock.AsyncMock())
+    client.get_database_client.return_value = database
+    monkeypatch.setattr(settings_cosmosdb, "CosmosClient", mock.Mock(return_value=client))
+    monkeypatch.setenv("AZURE_COSMOSDB_ACCOUNT", "mock-account")
+    monkeypatch.setenv("AZURE_ADMIN_SETTINGS_DATABASE", "settings-db")
+    return client, database, analytics_container
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("route", ["/api/admin/settings", "/api/status"])
+async def test_settings_reads_persisted_document(admin_app_factory, route):
+    stored_settings = {
+        **deepcopy(settings_cosmosdb.DEFAULT_SETTINGS),
+        "vacation_mode": True,
+        "owner_name": "Current owner",
+        "_etag": '"version-2"',
+        "_rid": "internal-resource-id",
+        "confidence_hard_threshold": 1.0,
+        "confidence_soft_threshold": 2.0,
+    }
+    container = mock.Mock(read_item=mock.AsyncMock(return_value=stored_settings))
+    app = admin_app_factory(container=container)
+
+    response = await app.test_client().get(route)
+
+    assert response.status_code == 200
+    payload = await response.get_json()
+    assert payload["vacation_mode"] is True
+    assert payload["owner_name"] == "Current owner"
+    assert "_etag" not in payload
+    assert "_rid" not in payload
+    assert "id" not in payload
+    assert "confidence_hard_threshold" not in payload
+    assert "confidence_soft_threshold" not in payload
+    container.read_item.assert_awaited_once_with(item="admin_settings", partition_key="admin_settings")
+
+
+@pytest.mark.asyncio
+async def test_get_current_settings_fallback_is_sanitized_and_independent(admin_app_factory):
+    app = admin_app_factory(
+        settings={"manager_email": "manager@example.com", "fun_facts": ["A fact"], "_etag": "private"}
+    )
+
+    async with app.app_context():
+        settings = await settings_cosmosdb.get_current_settings()
+        assert set(settings) == settings_cosmosdb.SETTINGS_FIELDS
+        assert settings["manager_email"] == "manager@example.com"
+        assert settings["vacation_mode"] is False
+        settings["fun_facts"].append("Another fact")
+        assert app.config[CONFIG_ADMIN_SETTINGS_CACHE]["fun_facts"] == ["A fact"]
+
+        app.config.pop(CONFIG_ADMIN_SETTINGS_CACHE)
+        original_facts = deepcopy(settings_cosmosdb.DEFAULT_SETTINGS["fun_facts"])
+        defaults = await settings_cosmosdb.get_current_settings()
+        defaults["fun_facts"].clear()
+        assert settings_cosmosdb.DEFAULT_SETTINGS["fun_facts"] == original_facts
+
+
+@pytest.mark.asyncio
+async def test_two_workers_read_latest_settings_and_merge_partial_updates(admin_app_factory, settings_container):
+    first_worker = admin_app_factory(container=settings_container)
+    second_worker = admin_app_factory(container=settings_container)
+
+    response = await first_worker.test_client().put(
+        "/api/admin/settings", json={"vacation_mode": True, "manager_email": "manager@example.com"}
+    )
+    assert response.status_code == 200
+    assert second_worker.config[CONFIG_ADMIN_SETTINGS_CACHE]["vacation_mode"] is False
+
+    for route in ("/api/admin/settings", "/api/status"):
+        response = await second_worker.test_client().get(route)
+        assert response.status_code == 200
+        assert (await response.get_json())["vacation_mode"] is True
+
+    response = await second_worker.test_client().put("/api/admin/settings", json={"owner_name": "Updated owner"})
+    assert response.status_code == 200
+    payload = await response.get_json()
+    assert payload["vacation_mode"] is True
+    assert payload["manager_email"] == "manager@example.com"
+    assert payload["owner_name"] == "Updated owner"
+    assert set(payload) == settings_cosmosdb.SETTINGS_FIELDS
+    settings_container.upsert_item.assert_not_called()
+    assert settings_container.replace_item.await_args.kwargs["etag"] == '"version-2"'
+    assert set(settings_container.replace_item.await_args.kwargs["body"]) == settings_cosmosdb.SETTINGS_FIELDS | {"id"}
+
+    response = await first_worker.test_client().get("/api/admin/settings")
+    assert (await response.get_json())["owner_name"] == "Updated owner"
+
+
+@pytest.mark.asyncio
+async def test_conditional_write_conflict_preserves_other_changes(admin_app_factory, settings_container):
+    original_replace = settings_container.replace_item.side_effect
+
+    async def concurrent_replace(*args, **kwargs):
+        settings_container.document["manager_email"] = "concurrent@example.com"
+        settings_container.document["_etag"] = '"concurrent-version"'
+        return await original_replace(*args, **kwargs)
+
+    settings_container.replace_item.side_effect = concurrent_replace
+    app = admin_app_factory(container=settings_container)
+    cache_before = deepcopy(app.config[CONFIG_ADMIN_SETTINGS_CACHE])
+
+    response = await app.test_client().put("/api/admin/settings", json={"owner_name": "Conflicting owner"})
+
+    assert response.status_code == 409
+    assert "Reload settings" in (await response.get_json())["error"]
+    assert settings_container.document["manager_email"] == "concurrent@example.com"
+    assert settings_container.document["owner_name"] == settings_cosmosdb.DEFAULT_SETTINGS["owner_name"]
+    assert app.config[CONFIG_ADMIN_SETTINGS_CACHE] == cache_before
+    assert settings_container.replace_item.await_count == 1
+    settings_container.upsert_item.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("route", ["/api/admin/settings", "/api/status"])
+async def test_settings_read_failure_does_not_use_cache(admin_app_factory, settings_container, route):
+    settings_container.read_item.side_effect = CosmosHttpResponseError(status_code=503, message="Storage unavailable")
+    app = admin_app_factory(container=settings_container)
+
+    response = await app.test_client().get(route)
+
+    assert response.status_code == 500
+    assert "vacation_mode" not in await response.get_json()
+    async with app.app_context():
+        with pytest.raises(CosmosHttpResponseError):
+            await settings_cosmosdb.get_current_settings()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "payload",
+    [
+        [],
+        "settings",
+        {"unknown": True},
+        {"id": "different"},
+        {"_etag": "client-version"},
+        {"confidence_hard_threshold": 1.0},
+        {"confidence_soft_threshold": 2.0},
+        {"vacation_mode": 1},
+        {"vacation_mode": "false"},
+        {"vacation_mode": None},
+        {"vacation_return_date": False},
+        {"vacation_return_date": "2026-02-30"},
+        {"vacation_return_date": "20260917"},
+        {"fun_facts": None},
+        {"fun_facts": "a fact"},
+        {"fun_facts": {}},
+        {"fun_facts": [None]},
+        {"fun_facts": [1]},
+        {"fun_facts": ["fact"] * (settings_cosmosdb.MAX_FUN_FACTS + 1)},
+        {"fun_facts": ["a" * (settings_cosmosdb.MAX_FUN_FACT_LENGTH + 1)]},
+        *[{field: None} for field in settings_cosmosdb.SETTINGS_TEXT_LIMITS],
+        *[{field: "a" * (limit + 1)} for field, limit in settings_cosmosdb.SETTINGS_TEXT_LIMITS.items()],
+    ],
+)
+async def test_invalid_settings_rejected_before_storage(admin_app_factory, settings_container, payload):
+    app = admin_app_factory(container=settings_container)
+
+    response = await app.test_client().put("/api/admin/settings", json=payload)
+
+    assert response.status_code == 400
+    assert (await response.get_json())["error"]
+    settings_container.read_item.assert_not_awaited()
+    settings_container.replace_item.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("body", "content_type", "expected_status"),
+    [
+        ("{}", "text/plain", 415),
+        ("{", "application/json", 400),
+        ("null", "application/json", 400),
+        ("", "application/json", 400),
+        (" " * (settings_cosmosdb.MAX_SETTINGS_REQUEST_BYTES + 1), "application/json", 413),
+    ],
+)
+async def test_invalid_settings_request_body(
+    admin_app_factory, settings_container, body, content_type, expected_status
+):
+    app = admin_app_factory(container=settings_container)
+
+    response = await app.test_client().put("/api/admin/settings", data=body, headers={"Content-Type": content_type})
+
+    assert response.status_code == expected_status
+    settings_container.read_item.assert_not_awaited()
+    settings_container.replace_item.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("claims", "admin_oid"),
+    [
+        ({}, "admin-oid"),
+        ({"oid": "other-oid", "auth_provider": "aad"}, "admin-oid"),
+        ({"oid": "admin-oid", "auth_provider": "aad"}, None),
+        ({"oid": "admin-oid", "auth_provider": "aad"}, ""),
+        ({"oid": "admin-oid", "auth_provider": "b2c"}, "admin-oid"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("method", "route"),
+    [("get", "/api/admin/settings"), ("put", "/api/admin/settings"), ("get", "/api/admin/analytics")],
+)
+async def test_admin_routes_forbid_non_admins(admin_app_factory, settings_container, claims, admin_oid, method, route):
+    app = admin_app_factory(container=settings_container)
+    app.config[CONFIG_ADMIN_USER_OID] = admin_oid
+    app.config[CONFIG_AUTH_CLIENT].get_auth_claims_if_enabled.return_value = claims
+
+    response = await getattr(app.test_client(), method)(route, json={})
+
+    assert response.status_code == 403
+    settings_container.read_item.assert_not_awaited()
+    settings_container.replace_item.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_public_status_does_not_require_auth_or_expose_admin_fields(admin_app_factory, settings_container):
+    settings_container.document.update(
+        {"manager_email": "private@example.com", "fun_facts": ["Private fact"], "vacation_mode": True}
+    )
+    app = admin_app_factory(container=settings_container)
+    auth = app.config[CONFIG_AUTH_CLIENT].get_auth_claims_if_enabled
+    auth.side_effect = AssertionError("Public status must not authenticate")
+
+    response = await app.test_client().get("/api/status")
+
+    assert response.status_code == 200
+    payload = await response.get_json()
+    public_fields = settings_cosmosdb.SETTINGS_FIELDS - {"manager_email", "fun_facts"}
+    assert payload == {field: settings_container.document[field] for field in public_fields}
+    auth.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("variable", [None, "AZURE_COSMOSDB_ACCOUNT", "AZURE_ADMIN_SETTINGS_DATABASE"])
+async def test_setup_without_storage_uses_independent_defaults(admin_app_factory, monkeypatch, variable):
+    if variable:
+        monkeypatch.setenv(variable, "configured")
+    app = admin_app_factory(settings={"owner_name": "Cached owner"})
+
+    async with app.app_context():
+        await settings_cosmosdb.setup_clients()
+        assert app.config[CONFIG_ADMIN_SETTINGS_CACHE] == settings_cosmosdb.DEFAULT_SETTINGS
+        original_facts = deepcopy(settings_cosmosdb.DEFAULT_SETTINGS["fun_facts"])
+        app.config[CONFIG_ADMIN_SETTINGS_CACHE]["fun_facts"].clear()
+        assert settings_cosmosdb.DEFAULT_SETTINGS["fun_facts"] == original_facts
+        await settings_cosmosdb.close_clients()
+
+    settings_cosmosdb.CosmosClient.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("variable", ["RUNNING_IN_PRODUCTION", "WEBSITE_HOSTNAME"])
+async def test_hosted_setup_requires_shared_usage_storage(admin_app_factory, monkeypatch, variable):
+    monkeypatch.setenv(variable, "true" if variable == "RUNNING_IN_PRODUCTION" else "example.invalid")
+    app = admin_app_factory()
+    async with app.app_context():
+        with pytest.raises(ValueError, match="shared usage storage"):
+            await settings_cosmosdb.setup_clients()
+    settings_cosmosdb.CosmosClient.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("use_history_database", [False, True])
+async def test_setup_loads_sanitized_settings_and_closes_clients(
+    admin_app_factory, settings_container, cosmos_setup, monkeypatch, use_history_database
+):
+    client, database, analytics_container = cosmos_setup
+    settings_container.document.update(
+        {"owner_name": "Persisted owner", "confidence_hard_threshold": 1.0, "_rid": "id"}
+    )
+    if use_history_database:
+        monkeypatch.delenv("AZURE_ADMIN_SETTINGS_DATABASE")
+        monkeypatch.setenv("AZURE_CHAT_HISTORY_DATABASE", "history-db")
+    app = admin_app_factory()
+
+    async with app.app_context():
+        await settings_cosmosdb.setup_clients()
+        assert app.config[CONFIG_COSMOS_SETTINGS_CONTAINER] is settings_container
+        assert app.config[CONFIG_COSMOS_ANALYTICS_CONTAINER] is analytics_container
+        cached = app.config[CONFIG_ADMIN_SETTINGS_CACHE]
+        assert cached["owner_name"] == "Persisted owner"
+        assert set(cached) == settings_cosmosdb.SETTINGS_FIELDS
+        await settings_cosmosdb.close_clients()
+
+    client.get_database_client.assert_called_once_with("history-db" if use_history_database else "settings-db")
+    analytics_container.read.assert_awaited_once()
+    client.close.assert_awaited_once()
+    settings_container.upsert_item.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("concurrent_seed", [False, True])
+async def test_setup_seeding_does_not_overwrite_another_worker(
+    admin_app_factory, settings_container, cosmos_setup, concurrent_seed
+):
+    stored = deepcopy(settings_container.document)
+    if concurrent_seed:
+        stored["manager_email"] = "concurrent@example.com"
+        stored["vacation_mode"] = True
+        settings_container.create_item.side_effect = CosmosResourceExistsError(
+            status_code=409, message="Already seeded"
+        )
+    settings_container.read_item.side_effect = [
+        CosmosResourceNotFoundError(status_code=404, message="Not seeded"),
+        stored,
+    ]
+    app = admin_app_factory()
+
+    async with app.app_context():
+        await settings_cosmosdb.setup_clients()
+
+    assert app.config[CONFIG_ADMIN_SETTINGS_CACHE] == settings_cosmosdb.sanitize_settings(stored)
+    settings_container.create_item.assert_awaited_once_with(settings_cosmosdb.DEFAULT_SETTINGS)
+    settings_container.upsert_item.assert_not_called()
+    settings_container.replace_item.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_configured_storage_setup_failure_is_not_a_default_fallback(
+    admin_app_factory, settings_container, cosmos_setup
+):
+    client, database, analytics_container = cosmos_setup
+    settings_container.read_item.side_effect = CosmosHttpResponseError(status_code=503, message="Unavailable")
+    app = admin_app_factory()
+
+    async with app.app_context():
+        with pytest.raises(CosmosHttpResponseError):
+            await settings_cosmosdb.setup_clients()
+        with pytest.raises(CosmosHttpResponseError):
+            await settings_cosmosdb.get_current_settings()
+
+    client.close.assert_awaited_once()
+    assert settings_cosmosdb.COSMOS_SETTINGS_CLIENT_KEY not in app.config
+    analytics_container.read.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("creation_fails", [False, True])
+async def test_setup_analytics_container_creation(admin_app_factory, settings_container, cosmos_setup, creation_fails):
+    client, database, analytics_container = cosmos_setup
+    analytics_container.read.side_effect = CosmosResourceNotFoundError(status_code=404, message="Missing analytics")
+    if creation_fails:
+        database.create_container_if_not_exists.side_effect = CosmosHttpResponseError(
+            status_code=503, message="Unavailable"
+        )
+    app = admin_app_factory()
+
+    async with app.app_context():
+        await settings_cosmosdb.setup_clients()
+
+    database.create_container_if_not_exists.assert_awaited_once_with(
+        id="analytics", partition_key=PartitionKey(path="/user_oid")
+    )
+    assert app.config[CONFIG_COSMOS_ANALYTICS_CONTAINER] is (None if creation_fails else analytics_container)
+    assert app.config[CONFIG_ADMIN_SETTINGS_CACHE] == settings_cosmosdb.sanitize_settings(settings_container.document)
+
+
+async def analytics_rows(rows):
+    for row in rows:
+        yield row
+
+
+@pytest.mark.asyncio
+async def test_analytics_uses_aggregates_and_a_bounded_recent_projection(admin_app_factory, monkeypatch):
+    monkeypatch.setattr(settings_cosmosdb.time, "time", lambda: 2000000000)
+    totals = {
+        "total_queries": 1000,
+        "avg_response_time_ms": 125.7,
+        "example_count": 250,
+        "error_count": 3,
+        "high": 700,
+        "medium": 50,
+        "low": 100,
+    }
+    recent = {
+        "query": "Latest question",
+        "confidence_level": "high",
+        "response_time_ms": 90.4,
+        "timestamp": 2000000000000,
+        "message_index": 3,
+    }
+    container = mock.Mock(
+        query_items=mock.Mock(
+            side_effect=[
+                analytics_rows([totals]),
+                analytics_rows([{"day": 20001, "count": 600}, {"day": 20000, "count": 400}]),
+                analytics_rows(["first-user", "second-user"]),
+                analytics_rows([{"depth": 4}, {"depth": 2}]),
+                analytics_rows([recent]),
+            ]
+        )
+    )
+    app = admin_app_factory()
+    app.config[CONFIG_COSMOS_ANALYTICS_CONTAINER] = container
+
+    response = await app.test_client().get("/api/admin/analytics")
+
+    assert response.status_code == 200
+    result = await response.get_json()
+    assert result["total_queries"] == 1000
+    assert result["avg_response_time_ms"] == 126
+    assert result["unique_users"] == 2
+    assert result["avg_session_depth"] == 3
+    assert result["example_question_rate"] == 25
+    assert result["confidence_distribution"] == {"high": 700, "medium": 50, "low": 100, "unknown": 150}
+    assert result["error_count"] == 3
+    assert result["queries_by_day"] == [
+        {"date": "2024-10-04", "count": 400},
+        {"date": "2024-10-05", "count": 600},
+    ]
+    assert result["recent_queries"][0]["query"] == "Latest question"
+    calls = container.query_items.call_args_list
+    assert len(calls) == 5
+    assert all("SELECT *" not in call.kwargs["query"] for call in calls)
+    assert all(
+        call.kwargs["parameters"]
+        == [
+            {"name": "@since", "value": (2000000000 - 30 * 86400) * 1000},
+            {"name": "@until", "value": 2000000000000},
+        ]
+        for call in calls
+    )
+    assert all("c.timestamp <= @until" in call.kwargs["query"] for call in calls)
+    assert "TOP 20" in calls[-1].kwargs["query"]
+    assert calls[-1].kwargs["max_item_count"] == 20
+
+
+@pytest.mark.asyncio
+async def test_analytics_empty_store_does_not_read_raw_events(admin_app_factory):
+    container = mock.Mock(query_items=mock.Mock(return_value=analytics_rows([{"total_queries": 0}])))
+    app = admin_app_factory()
+    app.config[CONFIG_COSMOS_ANALYTICS_CONTAINER] = container
+    response = await app.test_client().get("/api/admin/analytics")
+    assert response.status_code == 200
+    assert (await response.get_json()) == settings_cosmosdb._empty_analytics()
+    container.query_items.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_analytics_missing_configuration_is_not_a_success_response(admin_app_factory):
+    app = admin_app_factory()
+    response = await app.test_client().get("/api/admin/analytics")
+    assert response.status_code == 503
+    assert (await response.get_json()) == {"error": "Analytics not configured"}
+
+
+@pytest.mark.asyncio
+async def test_analytics_query_failure_is_explicit(admin_app_factory):
+    container = mock.Mock(
+        query_items=mock.Mock(side_effect=CosmosHttpResponseError(status_code=503, message="Analytics unavailable"))
+    )
+    app = admin_app_factory()
+    app.config[CONFIG_COSMOS_ANALYTICS_CONTAINER] = container
+    response = await app.test_client().get("/api/admin/analytics")
+    assert response.status_code == 500
+    assert "error" in await response.get_json()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("rows", [[], [{"total_queries": 0}, {"total_queries": 0}]])
+async def test_analytics_rejects_missing_or_multiple_totals(admin_app_factory, rows):
+    container = mock.Mock(query_items=mock.Mock(return_value=analytics_rows(rows)))
+    app = admin_app_factory()
+    app.config[CONFIG_COSMOS_ANALYTICS_CONTAINER] = container
+    response = await app.test_client().get("/api/admin/analytics")
+    assert response.status_code == 500
+    assert "error" in await response.get_json()
+
+
+@pytest.mark.asyncio
+async def test_analytics_rejects_invalid_grouped_user(admin_app_factory):
+    container = mock.Mock(
+        query_items=mock.Mock(
+            side_effect=[
+                analytics_rows([{"total_queries": 1}]),
+                analytics_rows([]),
+                analytics_rows([None]),
+            ]
+        )
+    )
+    app = admin_app_factory()
+    app.config[CONFIG_COSMOS_ANALYTICS_CONTAINER] = container
+    response = await app.test_client().get("/api/admin/analytics")
+    assert response.status_code == 500
+    assert "error" in await response.get_json()

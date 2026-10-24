@@ -1,0 +1,65 @@
+name: Validate Persona Assistant deployment
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infra/**"
+      - "azure.yaml"
+      - "scripts/deploy_preflight.py"
+      - "tests/test_deploy_preflight.py"
+      - "tests/test_deployment_config.py"
+      - ".github/workflows/azure-dev*.y*ml"
+      - ".azdo/pipelines/azure-dev.yml"
+  pull_request:
+    paths:
+      - "infra/**"
+      - "azure.yaml"
+      - "scripts/deploy_preflight.py"
+      - "tests/test_deploy_preflight.py"
+      - "tests/test_deployment_config.py"
+      - ".github/workflows/azure-dev*.y*ml"
+      - ".azdo/pipelines/azure-dev.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install validation dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install -r requirements-dev.txt
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bicep/br
+          key: bicep-modules-${{ runner.os }}-${{ hashFiles('infra/**/*.bicep') }}
+
+      # Public module downloads only. No Azure sign-in, image build or ARM deployment.
+      - name: Prepare public Bicep compiler and modules
+        run: |
+          az bicep install
+          az bicep restore --file infra/main.bicep
+
+      - name: Validate deployment inputs without Azure
+        run: |
+          .venv/bin/python scripts/deploy_preflight.py --validate-local
+          .venv/bin/python scripts/deploy_preflight.py --help
+          .venv/bin/python -m pytest --noconftest --basetemp=.test-deployment-validation tests/test_deployment_config.py tests/test_deploy_preflight.py
+          .venv/bin/ruff check scripts/deploy_preflight.py tests/test_deployment_config.py tests/test_deploy_preflight.py
+          .venv/bin/black --check scripts/deploy_preflight.py tests/test_deployment_config.py tests/test_deploy_preflight.py
+
+      - name: Compile Bicep locally without registry restores
+        run: |
+          az bicep build --file infra/main.bicep --no-restore --stdout > /dev/null
+          az bicep build --file infra/main.test.bicep --no-restore --stdout > /dev/null

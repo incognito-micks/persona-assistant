@@ -1,0 +1,16 @@
+{
+    "testdata_path": null,
+    "results_dir": "results/personal-chat",
+    "requested_metrics": ["gpt_groundedness", "gpt_relevance", "answer_length", "latency"],
+    "target_url": "http://localhost:50505/chat",
+    "target_parameters": {
+        "overrides": {
+            "temperature": 0.3,
+            "suggest_followup_questions": false,
+            "language": "en",
+            "seed": 1
+        }
+    },
+    "target_response_answer_jmespath": "message.content",
+    "target_response_context_jmespath": "context.data_points.text"
+}

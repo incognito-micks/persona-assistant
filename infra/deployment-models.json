@@ -1,0 +1,17 @@
+{
+  "text": {
+    "name": "gpt-4.1-mini",
+    "version": "2025-04-14",
+    "deployment": "text",
+    "sku": "GlobalStandard",
+    "capacity": 10
+  },
+  "realtime": {
+    "name": "gpt-realtime-2.1-mini",
+    "version": "2026-07-07",
+    "deployment": "realtime",
+    "sku": "GlobalStandard",
+    "capacity": 1
+  },
+  "voice": "alloy"
+}

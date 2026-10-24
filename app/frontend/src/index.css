@@ -1,0 +1,118 @@
+* {
+    box-sizing: border-box;
+}
+
+html {
+    background: #1a1a2e;
+    color: #f2f2f2;
+    font-size: 12px; /* Root font size for 320px width screens */
+    font-family:
+        "Segoe UI",
+        -apple-system,
+        BlinkMacSystemFont,
+        "Roboto",
+        "Oxygen",
+        "Ubuntu",
+        "Cantarell",
+        "Fira Sans",
+        "Droid Sans",
+        "Helvetica Neue",
+        sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+#root {
+    height: 100%;
+}
+
+@media (min-width: 480px) {
+    html {
+        font-size: 13px; /* Slightly larger font size for larger phones */
+    }
+}
+
+@media (min-width: 600px) {
+    html {
+        font-size: 14px; /* Adjust for small tablets and large phones in landscape */
+    }
+}
+
+@media (min-width: 768px) {
+    html {
+        font-size: 15px; /* Suitable for medium tablets */
+    }
+}
+
+@media (min-width: 992px) {
+    html {
+        font-size: 16px; /* Standard size for desktops */
+    }
+}
+
+/* Fluent UI dark mode overrides */
+.ms-Panel-main {
+    background: #16213e !important;
+    color: #f2f2f2 !important;
+}
+
+.ms-Panel-headerText {
+    color: #f2f2f2 !important;
+}
+
+.ms-TextField-fieldGroup {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.ms-TextField-field {
+    color: #f2f2f2 !important;
+}
+
+.ms-TextField-field::placeholder {
+    color: #b0b0c8 !important;
+}
+
+.ms-Button--default {
+    background: rgba(255, 255, 255, 0.06) !important;
+    color: #f2f2f2 !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.ms-Button--default:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #f2f2f2 !important;
+}
+
+.ms-Label {
+    color: #f2f2f2 !important;
+}
+
+.ms-Checkbox-text {
+    color: #f2f2f2 !important;
+}
+
+.ms-SpinButton-input {
+    color: #f2f2f2 !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+}
+
+.ms-Dropdown-title {
+    color: #f2f2f2 !important;
+    background: rgba(255, 255, 255, 0.06) !important;
+    border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.ms-Pivot-link {
+    color: #b0b0c8 !important;
+}
+
+.ms-Pivot-link.is-selected {
+    color: #6c63ff !important;
+}

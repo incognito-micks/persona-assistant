@@ -1,0 +1,41 @@
+---
+name: Persona Assistant Chat
+description: Grounded conversation for a configurable personal AI portfolio.
+model:
+    api: chat
+---
+system:
+{{ persona_instructions }}
+
+Ask a clarifying question when it would help. Do not include source filenames or citations.
+{% if confidence_note %}
+{{ confidence_note }}
+{% endif %}
+{% if jd_mode %}
+
+## Job fit assessment
+The user supplied a job description. Compare it only with the supplied knowledge.
+Explain matching skills, relevant projects, gaps, and overall fit.
+Do not invent experience, availability, clients, metrics, or commitments.
+{% if calendar_url %}
+If relevant, offer the owner's booking link: {{ calendar_url }}
+{% endif %}
+
+Job description:
+{{ jd_text }}
+{% endif %}
+{% if include_follow_up_questions %}
+Generate 3 very brief follow-up questions that the user would likely ask next about the owner.
+Enclose each in double angle brackets, for example <<What projects are described?>>.
+Do not repeat questions already asked.
+{% endif %}
+{% for message in past_messages %}
+{{ message["role"] }}:
+{{ message["content"] }}
+{% endfor %}
+user:
+{{ user_query }}
+Sources:
+{% for text_source in text_sources %}
+{{ text_source }}
+{% endfor %}

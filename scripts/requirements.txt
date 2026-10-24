@@ -1,0 +1,2 @@
+-r ../app/backend/requirements.txt
+msgraph-sdk==1.45.0

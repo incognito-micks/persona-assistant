@@ -1,0 +1,24 @@
+{
+  "owner_name": "Alex Morgan",
+  "assistant_name": "Alex's AI assistant",
+  "welcome_message": "Hi! I'm Alex's AI assistant. Ask about Alex's fictional projects and experience, or start a voice conversation.",
+  "site_description": "An example personal AI portfolio with grounded text chat and realtime voice. Alex Morgan is a fictional demonstration persona.",
+  "avatar_url": "/avatar.svg",
+  "social_image_url": "/social-preview.png",
+  "owner_email": "alex@example.com",
+  "manager_email": "",
+  "calendar_url": "",
+  "linkedin_url": "",
+  "tone": "Warm and approachable for conversation; precise and professional for work questions.",
+  "example_questions": [
+    "What kinds of projects has Alex built?",
+    "What is Alex's technical experience?",
+    "Tell me about a project Alex is proud of.",
+    "How does Alex approach a new engineering problem?"
+  ],
+  "fun_facts": [
+    "Alex enjoys hiking and sketching ideas before writing code."
+  ],
+  "vacation_mode": false,
+  "vacation_return_date": null
+}

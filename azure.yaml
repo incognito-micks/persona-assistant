@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: persona-assistant
+metadata:
+  template: persona-assistant@1.0.0
+requiredVersions:
+  azd: ">= 1.17.0"
+services:
+  backend:
+    project: ./app/backend
+    language: py
+    host: containerapp
+    docker:
+      path: ./Dockerfile
+      context: .
+      remoteBuild: true
+    hooks:
+      prepackage:
+        windows:
+          shell: pwsh
+          run: |
+            $ErrorActionPreference = "Stop"
+            python package_knowledge.py
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            Set-Location ../frontend
+            npm ci
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            npm run build
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          interactive: false
+          continueOnError: false
+        posix:
+          shell: sh
+          run: python package_knowledge.py && cd ../frontend && npm ci && npm run build
+          interactive: false
+          continueOnError: false
+      prebuild:
+        windows:
+          shell: pwsh
+          run: |
+            $ErrorActionPreference = "Stop"
+            python package_knowledge.py
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            Set-Location ../frontend
+            npm ci
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            npm run build
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          interactive: false
+          continueOnError: false
+        posix:
+          shell: sh
+          run: python package_knowledge.py && cd ../frontend && npm ci && npm run build
+          interactive: false
+          continueOnError: false
+hooks:
+  preprovision:
+    windows:
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = "Stop"
+        python scripts/deploy_preflight.py
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        ./scripts/auth_init.ps1
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      interactive: true
+      continueOnError: false
+    posix:
+      shell: sh
+      run: python scripts/deploy_preflight.py && ./scripts/auth_init.sh
+      interactive: true
+      continueOnError: false
+  postprovision:
+    windows:
+      shell: pwsh
+      run: ./scripts/auth_update.ps1
+      interactive: true
+      continueOnError: false
+    posix:
+      shell: sh
+      run: ./scripts/auth_update.sh
+      interactive: true
+      continueOnError: false

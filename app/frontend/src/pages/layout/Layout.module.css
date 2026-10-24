@@ -1,0 +1,90 @@
+.layout {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.main {
+    display: flex;
+    flex: 1;
+    min-height: 0; /* allow inner scroll areas to work inside flex container */
+}
+
+.header {
+    background-color: #1a1a2e;
+    color: #f2f2f2;
+}
+
+.headerContainer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+.headerTitleContainer {
+    display: flex;
+    align-items: center;
+    color: #f2f2f2;
+    text-decoration: none;
+    min-width: 0;
+}
+
+.headerAvatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.headerTitle {
+    margin-left: 0.5rem;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.ownerLink {
+    color: #b0b0c8;
+    font-size: 0.8rem;
+    margin-left: 1rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.ownerLink:hover {
+    color: #f2f2f2;
+}
+
+.vacationBanner {
+    background-color: #f59e0b;
+    color: #1a1a2e;
+    text-align: center;
+    padding: 0.4rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.contactFooter {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background-color: #16213e;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.contactLink {
+    color: #7b9ff0;
+    font-size: 0.8rem;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s;
+}
+
+.contactLink:hover {
+    color: #a8c4f7;
+    text-decoration: underline;
+}
