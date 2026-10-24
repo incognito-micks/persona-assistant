@@ -178,6 +178,16 @@ class VoiceSessionLease:
         self.may_exist = False
 
 
+async def release_voice_lease(lease: VoiceSessionLease) -> bool:
+    """Keep storage exception chains out of cancelled shield callbacks."""
+    try:
+        await asyncio.wait_for(lease.release(), timeout=STORE_OPERATION_TIMEOUT_SECONDS)
+    except (ServiceUnavailable, asyncio.TimeoutError):
+        logger.warning("Voice capacity release failed; reservation will expire")
+        return False
+    return True
+
+
 @asynccontextmanager
 async def voice_session_usage() -> AsyncGenerator[VoiceSessionLease, None]:
     """Refund known setup failures; abandoned reservations expire without a daily refund."""
@@ -197,18 +207,13 @@ async def voice_session_usage() -> AsyncGenerator[VoiceSessionLease, None]:
     finally:
         if lease.may_exist:
             cleanup = asyncio.create_task(
-                asyncio.wait_for(lease.release(), timeout=STORE_OPERATION_TIMEOUT_SECONDS),
+                release_voice_lease(lease),
                 name="realtime-voice-lease-release",
             )
             try:
-                await asyncio.shield(cleanup)
+                released = await asyncio.shield(cleanup)
             except asyncio.CancelledError:
-                try:
-                    await cleanup
-                except Exception:
-                    logger.warning("Voice capacity release failed; reservation will expire")
+                await cleanup
                 raise
-            except Exception:
-                logger.warning("Voice capacity release failed; reservation will expire")
-                if not failed:
-                    raise
+            if not released and not failed:
+                raise ServiceUnavailable("Voice capacity storage is unavailable")

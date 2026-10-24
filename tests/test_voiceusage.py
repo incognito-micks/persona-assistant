@@ -440,3 +440,25 @@ async def test_release_failure_during_cancellation_preserves_cancellation(voice_
     assert len(stored_record(application, voice_container)["leases"]) == 1
     assert "reservation will expire" in caplog.text
     assert "private-store-secret" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_release_timeout_is_bounded_and_explicit(voice_clock, voice_container, monkeypatch, caplog):
+    cancelled_release = asyncio.Event()
+
+    async def blocked_release(**kwargs):
+        try:
+            await asyncio.Future()
+        finally:
+            cancelled_release.set()
+
+    voice_container.replace_item.side_effect = blocked_release
+    monkeypatch.setattr(voiceusage, "STORE_OPERATION_TIMEOUT_SECONDS", 0.02)
+    application = application_for(voice_container)
+    async with application.app_context():
+        with pytest.raises(ServiceUnavailable, match="Voice capacity storage is unavailable"):
+            async with voiceusage.voice_session_usage() as lease:
+                lease.admitted = True
+    assert cancelled_release.is_set()
+    assert len(stored_record(application, voice_container)["leases"]) == 1
+    assert "reservation will expire" in caplog.text
