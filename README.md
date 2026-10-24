@@ -30,6 +30,8 @@ No Python or TypeScript edits are needed to change persona. Empty contact links 
 
 Once [owner access](docs/operations.md#owner-access) is configured, open `/#/admin` for the owner workspace. **Personalize** groups branding, conversation, and contact/availability settings, with a draft visitor preview. Edits are not published until **Save changes** succeeds; **Discard changes** reverts them, and leaving or signing out prompts before abandoning unsaved edits. **Usage** shows operational summaries, not private visitor conversations or verified unique people.
 
+If Microsoft sign-in fails before opening a popup, the error distinguishes a blocked popup from an active or interrupted sign-in. Close any existing Microsoft sign-in window, then use **Reset sign-in** to clear this site's saved Microsoft authentication state before trying again. This does not change assistant settings or browser-local chat history, and it does not sign you out of Microsoft on other sites.
+
 For private source files outside the checkout, set `PROFILE_PATH` and `KNOWLEDGE_DATA_DIR` when preparing the package. They select build inputs; they are not container filesystem paths. Never commit a private profile, credentials, or private knowledge. See [personalization and packaging](docs/personalization-and-packaging.md).
 
 ## Local Development

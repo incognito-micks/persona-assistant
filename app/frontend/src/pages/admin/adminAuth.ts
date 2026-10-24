@@ -5,6 +5,7 @@ export interface OwnerAuthClient {
     getToken: () => Promise<string | undefined>;
     signIn: () => Promise<string>;
     signOut: () => Promise<void>;
+    resetSignIn: () => Promise<void>;
     getAccount: () => { name?: string; username: string } | undefined;
 }
 
@@ -38,6 +39,7 @@ export default async function createOwnerAuth(config: Configuration): Promise<Ow
         getCachedToken: () => getToken(false),
         getToken: () => getToken(true),
         signIn,
+        resetSignIn: () => instance.clearCache(),
         getAccount: () => {
             const account = instance.getActiveAccount();
             return account ? { name: account.name, username: account.username } : undefined;

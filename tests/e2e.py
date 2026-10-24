@@ -213,6 +213,7 @@ def owner_auth(page: Page):
     )
     page.add_init_script("""window.ownerAuthMocks = {
         signIns: 0, signOuts: 0, pauseSignIn: false, cancelSignIn: false,
+        resets: 0, failReset: false, signInErrorCode: null,
         account: {name: 'Example Owner', username: 'owner@example.test'}
     };""")
     page.route(
@@ -229,12 +230,67 @@ def owner_auth(page: Page):
                         await new Promise(resolve => {window.ownerAuthMocks.finishSignIn = resolve;});
                     }
                     if (window.ownerAuthMocks.cancelSignIn) throw {errorCode: 'user_cancelled'};
+                    if (window.ownerAuthMocks.signInErrorCode) throw {errorCode: window.ownerAuthMocks.signInErrorCode};
                     return 'browser-owner-id-token';
+                },
+                resetSignIn: async () => {
+                    window.ownerAuthMocks.resets++;
+                    if (window.ownerAuthMocks.failReset) throw new Error('Reset failed');
+                    window.ownerAuthMocks.cachedToken = undefined;
                 },
                 signOut: async () => {window.ownerAuthMocks.signOuts++;}
             });""",
         ),
     )
+
+
+@pytest.fixture
+def real_owner_auth(page: Page):
+    client_id = "11111111-1111-1111-1111-111111111111"
+    authority = "https://login.microsoftonline.com/22222222-2222-2222-2222-222222222222"
+    metadata = {
+        "authorization_endpoint": f"{authority}/oauth2/v2.0/authorize",
+        "token_endpoint": f"{authority}/oauth2/v2.0/token",
+        "end_session_endpoint": f"{authority}/oauth2/v2.0/logout",
+        "issuer": f"{authority}/v2.0",
+        "jwks_uri": f"{authority}/discovery/v2.0/keys",
+    }
+    page.route(
+        "**/auth_setup_admin",
+        lambda route: route.fulfill(
+            json={
+                "enabled": True,
+                "msalConfig": {
+                    "auth": {
+                        "clientId": client_id,
+                        "authority": authority,
+                        "redirectUri": "/redirect",
+                        "authorityMetadata": json.dumps(metadata),
+                        "cloudDiscoveryMetadata": json.dumps(
+                            {
+                                "tenant_discovery_endpoint": f"{authority}/v2.0/.well-known/openid-configuration",
+                                "metadata": [
+                                    {
+                                        "preferred_network": "login.microsoftonline.com",
+                                        "preferred_cache": "login.microsoftonline.com",
+                                        "aliases": ["login.microsoftonline.com"],
+                                    }
+                                ],
+                            }
+                        ),
+                    },
+                    "cache": {"cacheLocation": "sessionStorage"},
+                },
+            }
+        ),
+    )
+
+    def provider(route: Route):
+        assert urlsplit(route.request.url).path.endswith("/oauth2/v2.0/authorize"), route.request.url
+        route.fulfill(content_type="text/html", body="<h1>Microsoft sign-in test provider</h1>")
+
+    page.context.route("https://login.microsoftonline.com/**", provider)
+    return client_id
 
 
 @pytest.fixture
@@ -765,6 +821,110 @@ def test_owner_sign_in_cancellation_keeps_retry_available(page: Page, live_serve
     expect(page.get_by_text("Sign-in was canceled. You can try again.", exact=True)).to_be_visible()
     expect(button).to_be_enabled()
     expect(page.get_by_label("Owner Name", exact=True)).to_have_count(0)
+
+
+def test_owner_real_msal_opens_popup_and_recovers_after_cancellation(page: Page, live_server_url: str, real_owner_auth):
+    page.goto(f"{live_server_url}#/admin")
+    button = page.get_by_role("button", name="Continue with Microsoft", exact=True)
+    with page.expect_popup() as opened:
+        button.click()
+    popup = opened.value
+    expect(popup.get_by_role("heading", name="Microsoft sign-in test provider", exact=True)).to_be_visible()
+    assert urlsplit(popup.url).hostname == "login.microsoftonline.com"
+    expect(page.get_by_role("button", name="Opening Microsoft sign-in...", exact=True)).to_be_disabled()
+    popup.close()
+    expect(page.get_by_text("Sign-in was canceled. You can try again.", exact=True)).to_be_visible()
+    expect(button).to_be_enabled()
+    with page.expect_popup() as reopened:
+        button.click()
+    expect(reopened.value.get_by_role("heading", name="Microsoft sign-in test provider", exact=True)).to_be_visible()
+    reopened.value.close()
+    expect(button).to_be_enabled()
+
+
+def test_owner_real_msal_reset_recovers_stuck_interaction(page: Page, live_server_url: str, real_owner_auth):
+    page.goto(f"{live_server_url}#/admin")
+    button = page.get_by_role("button", name="Continue with Microsoft", exact=True)
+    expect(button).to_be_visible()
+    page.evaluate(
+        """clientId => {
+            sessionStorage.setItem('msal.interaction.status', JSON.stringify({clientId, type: 'sign_in'}));
+            sessionStorage.setItem('unrelated-session-data', 'preserve');
+            localStorage.setItem('unrelated-local-data', 'preserve');
+        }""",
+        real_owner_auth,
+    )
+    popups = []
+    page.on("popup", lambda popup: popups.append(popup))
+    button.click()
+    expect(
+        page.get_by_text(
+            "Microsoft sign-in is already active or was interrupted. Close any Microsoft sign-in window, then reset sign-in.",
+            exact=True,
+        )
+    ).to_be_visible()
+    assert popups == []
+    reset = page.get_by_role("button", name="Reset sign-in", exact=True)
+    assert_text_contrast(reset.locator(".ms-Button-label"))
+    reset.click()
+    expect(button).to_be_enabled()
+    assert page.evaluate("sessionStorage.getItem('unrelated-session-data')") == "preserve"
+    assert page.evaluate("localStorage.getItem('unrelated-local-data')") == "preserve"
+    with page.expect_popup() as opened:
+        button.click()
+    expect(opened.value.get_by_role("heading", name="Microsoft sign-in test provider", exact=True)).to_be_visible()
+    opened.value.close()
+    expect(button).to_be_enabled()
+
+
+def test_owner_real_msal_reports_blocked_popup(page: Page, live_server_url: str, real_owner_auth):
+    page.add_init_script("window.open = () => null;")
+    page.goto(f"{live_server_url}#/admin")
+    page.get_by_role("button", name="Continue with Microsoft", exact=True).click()
+    expect(
+        page.get_by_text(
+            "Your browser could not open Microsoft sign-in. Allow pop-ups for this site and try again.",
+            exact=True,
+        )
+    ).to_be_visible()
+    expect(page.get_by_role("button", name="Reset sign-in", exact=True)).to_be_visible()
+
+
+def test_owner_sign_in_reset_failure_is_visible(page: Page, live_server_url: str, owner_auth):
+    page.goto(f"{live_server_url}#/admin")
+    button = page.get_by_role("button", name="Continue with Microsoft", exact=True)
+    expect(button).to_be_visible()
+    page.evaluate("""() => {
+        window.ownerAuthMocks.signInErrorCode = 'interaction_in_progress';
+        window.ownerAuthMocks.failReset = true;
+    }""")
+    button.click()
+    reset = page.get_by_role("button", name="Reset sign-in", exact=True)
+    reset.click()
+    expect(
+        page.get_by_text(
+            "Unable to reset Microsoft sign-in. Check that browser storage is allowed for this site and try again.",
+            exact=True,
+        )
+    ).to_be_visible()
+    expect(reset).to_be_enabled()
+    assert page.evaluate("window.ownerAuthMocks.resets") == 1
+
+
+@pytest.mark.parametrize(
+    ("code", "message"),
+    [
+        ("state_not_found", "Microsoft sign-in failed (state_not_found). Try again or reset sign-in."),
+        ("not a safe diagnostic code", "Microsoft sign-in did not finish. Please try again."),
+    ],
+)
+def test_owner_sign_in_diagnostic_only_displays_safe_codes(page: Page, live_server_url: str, owner_auth, code, message):
+    page.goto(f"{live_server_url}#/admin")
+    button = page.get_by_role("button", name="Continue with Microsoft", exact=True)
+    expect(button).to_be_visible()
+    page.evaluate("code => {window.ownerAuthMocks.signInErrorCode = code;}", code)
+    button.click()
+    expect(page.get_by_text(message, exact=True)).to_be_visible()
 
 
 def test_owner_auth_setup_failure_is_retryable_not_disabled(page: Page, live_server_url: str):

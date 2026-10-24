@@ -110,8 +110,12 @@ function Admin() {
     const [analyticsError, setAnalyticsError] = useState<string | null>(null);
 
     const adminError = (failure: unknown, fallback: string) => {
-        if (typeof failure === "object" && failure !== null && "errorCode" in failure && failure.errorCode === "user_cancelled") {
-            return t("admin.signInCanceled");
+        if (typeof failure === "object" && failure !== null && "errorCode" in failure) {
+            const code = failure.errorCode;
+            if (code === "user_cancelled") return t("admin.signInCanceled");
+            if (code === "interaction_in_progress") return t("admin.signInInProgress");
+            if (code === "popup_window_error" || code === "empty_window_error") return t("admin.signInPopupBlocked");
+            if (typeof code === "string" && /^[a-z0-9_]{1,80}$/.test(code)) return t("admin.signInDiagnostic", { code });
         }
         if (failure instanceof AdminApiError) {
             if (failure.status === 403) return t("admin.ownerDenied");
@@ -178,6 +182,7 @@ function Admin() {
         setSigningIn(true);
         setError(null);
         setAuthNotice(null);
+        setOwnerDenied(false);
         try {
             const token = await msalInstance.signIn();
             updateAccountLabel(msalInstance);
@@ -328,6 +333,22 @@ function Admin() {
         setAuthAttempt(attempt => attempt + 1);
     };
 
+    const resetSignIn = async () => {
+        if (!msalInstance || authLoading || signingIn || loading) return;
+        setAuthLoading(true);
+        setError(null);
+        setAuthNotice(null);
+        try {
+            await msalInstance.resetSignIn();
+            setAccountLabel(null);
+            retryInitialization();
+        } catch {
+            console.error("Unable to reset Microsoft owner sign-in.");
+            setError(t("admin.resetSignInError"));
+            setAuthLoading(false);
+        }
+    };
+
     const performAction = async (action: "signOut" | "reload") => {
         setPendingAction(null);
         if (action === "signOut") {
@@ -443,7 +464,12 @@ function Admin() {
                     disabled={signingIn || loading}
                 />
                 {(signingIn || loading) && <Spinner size={SpinnerSize.small} label={t(loading ? "admin.loading" : "admin.signingIn")} />}
-                {error && !ownerDenied && !signingIn && <DefaultButton text={t("admin.retry")} onClick={retryInitialization} />}
+                {error && !ownerDenied && !signingIn && (
+                    <>
+                        <DefaultButton text={t("admin.resetSignIn")} onClick={resetSignIn} />
+                        <p className={styles.authIntro}>{t("admin.resetSignInHelp")}</p>
+                    </>
+                )}
             </OwnerAccessCard>
         );
     }
