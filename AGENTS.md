@@ -29,6 +29,7 @@ Preserve unrelated staged/working changes and respect delegated file ownership. 
 - Missing owner configuration disables administration, not public chat/voice. Authentication and exact owner authorization remain on the server; never default to any signed-in user.
 - Preserve bounded JWT signing-key caching and validation. Do not restore unused Search OBO or visitor-login requirements.
 - Profile precedence is neutral defaults, selected profile, then persisted owner fields. Await `get_current_settings()` per request; preserve ETag checks and validation on updates.
+- Owner-workspace previews are local drafts, not backend writes. Preserve Save/Discard and unsaved navigation/sign-out/reload guards, and do not treat Microsoft sign-in as owner authorization before the protected settings API accepts it.
 - Text and voice share the profile/persona and complete knowledge. Query classification affects tone, never access to grounding.
 - Public requests cannot override or inject owner system prompts. Persona configuration belongs to validated profile/settings, not visitor overrides.
 - Parse bundled prompt roles before rendering visitor-controlled values, and keep history as structured text messages. Preserve the prompt-directory boundary; never parse interpolated visitor text as message roles.

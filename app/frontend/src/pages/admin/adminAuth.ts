@@ -5,6 +5,7 @@ export interface OwnerAuthClient {
     getToken: () => Promise<string | undefined>;
     signIn: () => Promise<string>;
     signOut: () => Promise<void>;
+    getAccount: () => { name?: string; username: string } | undefined;
 }
 
 export default async function createOwnerAuth(config: Configuration): Promise<OwnerAuthClient> {
@@ -14,9 +15,16 @@ export default async function createOwnerAuth(config: Configuration): Promise<Ow
     if (cachedAccount) instance.setActiveAccount(cachedAccount);
     const scopes = ["openid", "profile", "email"];
 
+    const signIn = async (): Promise<string> => {
+        const result = await instance.loginPopup({ scopes, prompt: "select_account" });
+        if (result.account) instance.setActiveAccount(result.account);
+        if (!result.idToken) throw new Error("Microsoft sign-in did not return an ID token");
+        return result.idToken;
+    };
+
     const getToken = async (allowPopup: boolean): Promise<string | undefined> => {
         const account = instance.getActiveAccount();
-        if (!account) return undefined;
+        if (!account) return allowPopup ? signIn() : undefined;
         try {
             return (await instance.acquireTokenSilent({ scopes, account })).idToken;
         } catch (failure) {
@@ -29,10 +37,10 @@ export default async function createOwnerAuth(config: Configuration): Promise<Ow
     return {
         getCachedToken: () => getToken(false),
         getToken: () => getToken(true),
-        signIn: async () => {
-            const result = await instance.loginPopup({ scopes });
-            if (result.account) instance.setActiveAccount(result.account);
-            return result.idToken;
+        signIn,
+        getAccount: () => {
+            const account = instance.getActiveAccount();
+            return account ? { name: account.name, username: account.username } : undefined;
         },
         signOut: async () => {
             await instance.logoutPopup({

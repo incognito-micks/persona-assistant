@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
+import { useBlocker } from "react-router-dom";
 import {
     Pivot,
     PivotItem,
@@ -10,24 +11,66 @@ import {
     SpinnerSize,
     MessageBar,
     MessageBarType,
-    IconButton
+    IconButton,
+    Dialog,
+    DialogFooter,
+    DialogType
 } from "@fluentui/react";
+import {
+    Add20Regular,
+    ArrowExit20Regular,
+    ArrowSync20Regular,
+    Checkmark20Regular,
+    Delete20Regular,
+    Edit20Regular,
+    Info20Regular,
+    LockClosed20Regular,
+    Person20Regular,
+    Save20Regular
+} from "@fluentui/react-icons";
 import { useTranslation } from "react-i18next";
 
 import { AdminApiError, getAdminSettings, updateAdminSettings, getAdminAnalytics } from "../../api";
 import { AdminSettings, AnalyticsSummary } from "../../api/models";
 import { useAppContext } from "../../appContext";
+import { getAssistantName, getAvatarUrl } from "../../profile";
 import type { OwnerAuthClient } from "./adminAuth";
+import { OwnerPreview } from "./OwnerPreview";
 import styles from "./Admin.module.css";
 
 async function getAdminMsalInstance(): Promise<OwnerAuthClient | null> {
     const response = await fetch("/auth_setup_admin");
     if (!response.ok) throw new Error("Failed to fetch admin auth config");
     const config = await response.json();
-    if (config.enabled !== true) return null;
+    if (typeof config?.enabled !== "boolean") throw new Error("Invalid owner auth configuration");
+    if (!config.enabled) return null;
     if (!config.msalConfig?.auth?.clientId || !config.msalConfig?.auth?.authority) throw new Error("Incomplete owner auth config");
     const { default: createOwnerAuth } = await import("./adminAuth");
     return createOwnerAuth(config.msalConfig);
+}
+
+function OwnerAccessCard({ children }: { children: ReactNode }) {
+    const { t } = useTranslation();
+    const { publicStatus } = useAppContext();
+
+    return (
+        <section className={styles.authContainer} aria-labelledby="owner-access-title">
+            <div className={styles.authCard}>
+                <div className={styles.authBrand}>
+                    <img src={getAvatarUrl(publicStatus)} alt="" className={styles.authAvatar} />
+                    <span>{getAssistantName(publicStatus)}</span>
+                </div>
+                <p className={styles.eyebrow}>{t("admin.ownerLink")}</p>
+                <h1 id="owner-access-title">{t("admin.title")}</h1>
+                <p className={styles.authIntro}>{t("admin.signInHelp")}</p>
+                {children}
+                <p className={styles.ownerOnly}>
+                    <LockClosed20Regular aria-hidden />
+                    {t("admin.ownerOnly")}
+                </p>
+            </div>
+        </section>
+    );
 }
 
 function Admin() {
@@ -37,12 +80,21 @@ function Admin() {
     const [adminEnabled, setAdminEnabled] = useState<boolean | null>(null);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [authLoading, setAuthLoading] = useState(true);
+    const [authAttempt, setAuthAttempt] = useState(0);
+    const [signingIn, setSigningIn] = useState(false);
+    const [signingOut, setSigningOut] = useState(false);
+    const [accountLabel, setAccountLabel] = useState<string | null>(null);
+    const [ownerDenied, setOwnerDenied] = useState(false);
+    const [authNotice, setAuthNotice] = useState<string | null>(null);
     const [settings, setSettings] = useState<AdminSettings | null>(null);
     const [savedSettings, setSavedSettings] = useState<AdminSettings | null>(null);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+    const [saveWarning, setSaveWarning] = useState(false);
+    const [conflict, setConflict] = useState(false);
+    const [pendingAction, setPendingAction] = useState<"signOut" | "reload" | null>(null);
 
     const changedSettings: Partial<AdminSettings> =
         settings && savedSettings
@@ -51,12 +103,16 @@ function Admin() {
               )
             : {};
     const hasChanges = Object.keys(changedSettings).length > 0;
+    const blocker = useBlocker(({ currentLocation, nextLocation }) => (hasChanges || saving) && currentLocation.pathname !== nextLocation.pathname);
 
     const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
     const [analyticsLoading, setAnalyticsLoading] = useState(false);
     const [analyticsError, setAnalyticsError] = useState<string | null>(null);
 
     const adminError = (failure: unknown, fallback: string) => {
+        if (typeof failure === "object" && failure !== null && "errorCode" in failure && failure.errorCode === "user_cancelled") {
+            return t("admin.signInCanceled");
+        }
         if (failure instanceof AdminApiError) {
             if (failure.status === 403) return t("admin.ownerDenied");
             if (failure.status === 401) return t("admin.authRequired");
@@ -64,6 +120,25 @@ function Admin() {
         }
         return t(fallback);
     };
+
+    const updateAccountLabel = (instance: OwnerAuthClient) => {
+        const account = instance.getAccount();
+        setAccountLabel(account?.username || account?.name || null);
+    };
+
+    useEffect(() => {
+        if (!hasChanges && !saving) return;
+        const beforeUnload = (event: BeforeUnloadEvent) => {
+            event.preventDefault();
+            event.returnValue = "";
+        };
+        window.addEventListener("beforeunload", beforeUnload);
+        return () => window.removeEventListener("beforeunload", beforeUnload);
+    }, [hasChanges, saving]);
+
+    useEffect(() => {
+        if (blocker.state === "blocked" && !hasChanges && !saving) blocker.proceed();
+    }, [blocker, hasChanges, saving]);
 
     useEffect(() => {
         let cancelled = false;
@@ -74,16 +149,20 @@ function Admin() {
                 setAdminEnabled(instance !== null);
                 setMsalInstance(instance);
                 if (!instance) return;
+                updateAccountLabel(instance);
                 const token = await instance.getCachedToken();
                 if (cancelled || !token) return;
-                setIsAuthenticated(true);
                 const data = await getAdminSettings(token);
                 if (!cancelled) {
                     setSettings(data);
                     setSavedSettings(data);
+                    setIsAuthenticated(true);
                 }
             } catch (failure) {
-                if (!cancelled) setError(adminError(failure, "admin.authError"));
+                if (!cancelled) {
+                    setError(adminError(failure, "admin.authError"));
+                    setOwnerDenied(failure instanceof AdminApiError && failure.status === 403);
+                }
             } finally {
                 if (!cancelled) setAuthLoading(false);
             }
@@ -92,23 +171,31 @@ function Admin() {
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [authAttempt]);
 
     const handleAdminLogin = async () => {
-        if (!msalInstance) return;
+        if (!msalInstance || signingIn) return;
+        setSigningIn(true);
+        setError(null);
+        setAuthNotice(null);
         try {
             const token = await msalInstance.signIn();
-            if (token) {
-                setIsAuthenticated(true);
-                await loadSettings(token);
-            }
+            updateAccountLabel(msalInstance);
+            await loadSettings(token);
         } catch (failure) {
-            setError(adminError(failure, "admin.loginError"));
+            if (typeof failure === "object" && failure !== null && "errorCode" in failure && failure.errorCode === "user_cancelled") {
+                setAuthNotice(t("admin.signInCanceled"));
+            } else {
+                setError(adminError(failure, "admin.loginError"));
+            }
+        } finally {
+            setSigningIn(false);
         }
     };
 
     const handleAdminLogout = async () => {
-        if (!msalInstance) return;
+        if (!msalInstance || signingOut) return;
+        setSigningOut(true);
         try {
             await msalInstance.signOut();
             setSettings(null);
@@ -117,20 +204,33 @@ function Admin() {
             setIsAuthenticated(false);
             setError(null);
             setSuccess(false);
+            setSaveWarning(false);
+            setConflict(false);
+            setAccountLabel(null);
+            setOwnerDenied(false);
+            setAuthNotice(null);
         } catch {
             setError(t("admin.logoutError"));
+        } finally {
+            setSigningOut(false);
         }
     };
 
-    const loadSettings = async (token: string) => {
+    const loadSettings = async (token: string): Promise<boolean> => {
         try {
             setLoading(true);
             setError(null);
             const data = await getAdminSettings(token);
             setSettings(data);
             setSavedSettings(data);
+            setIsAuthenticated(true);
+            setOwnerDenied(false);
+            return true;
         } catch (failure) {
             setError(adminError(failure, "admin.loadError"));
+            setOwnerDenied(failure instanceof AdminApiError && failure.status === 403);
+            setIsAuthenticated(false);
+            return false;
         } finally {
             setLoading(false);
         }
@@ -142,6 +242,8 @@ function Admin() {
             setSaving(true);
             setError(null);
             setSuccess(false);
+            setSaveWarning(false);
+            setConflict(false);
             const token = await msalInstance.getToken();
             if (!token) {
                 setError(t("admin.authRequired"));
@@ -157,17 +259,24 @@ function Admin() {
             setSettings(updated);
             setSavedSettings(updated);
             setSuccess(true);
-            void refreshPublicStatus().catch(() => console.error("Unable to refresh the public profile after saving."));
+            try {
+                await refreshPublicStatus();
+            } catch {
+                console.error("Unable to refresh the public profile after saving.");
+                setSaveWarning(true);
+            }
         } catch (failure) {
             setError(adminError(failure, "admin.saveError"));
+            setConflict(failure instanceof AdminApiError && (failure.status === 409 || failure.status === 412));
         } finally {
             setSaving(false);
         }
     };
 
     const updateField = <K extends keyof AdminSettings>(field: K, value: AdminSettings[K]) => {
-        if (!settings || saving) return;
+        if (!settings || saving || signingOut) return;
         setSuccess(false);
+        setSaveWarning(false);
         setSettings({ ...settings, [field]: value });
     };
 
@@ -210,146 +319,336 @@ function Admin() {
         }
     };
 
+    const retryInitialization = () => {
+        setAuthLoading(true);
+        setAdminEnabled(null);
+        setError(null);
+        setAuthNotice(null);
+        setOwnerDenied(false);
+        setAuthAttempt(attempt => attempt + 1);
+    };
+
+    const performAction = async (action: "signOut" | "reload") => {
+        setPendingAction(null);
+        if (action === "signOut") {
+            await handleAdminLogout();
+        } else if (msalInstance) {
+            try {
+                const token = await msalInstance.getToken();
+                if (!token) {
+                    setError(t("admin.authRequired"));
+                    return;
+                }
+                if (!(await loadSettings(token))) return;
+                setConflict(false);
+                setSuccess(false);
+                try {
+                    await refreshPublicStatus();
+                } catch {
+                    console.error("Unable to refresh the public profile after reloading.");
+                    setSaveWarning(true);
+                }
+            } catch (failure) {
+                setError(adminError(failure, "admin.loadError"));
+            }
+        }
+    };
+
+    const requestAction = (action: "signOut" | "reload") => {
+        if (saving || signingOut) return;
+        if (hasChanges) setPendingAction(action);
+        else void performAction(action);
+    };
+
+    const keepEditing = () => {
+        setPendingAction(null);
+        if (blocker.state === "blocked") blocker.reset();
+    };
+
+    const discardAndContinue = () => {
+        if (saving) return;
+        setSettings(savedSettings);
+        setSuccess(false);
+        if (blocker.state === "blocked") blocker.proceed();
+        else if (pendingAction) void performAction(pendingAction);
+    };
+
+    const leaveDialog = (
+        <Dialog
+            hidden={blocker.state !== "blocked" && pendingAction === null}
+            onDismiss={keepEditing}
+            dialogContentProps={{
+                type: DialogType.normal,
+                showCloseButton: false,
+                title: t(saving ? "admin.leaveSavingTitle" : "admin.leaveTitle"),
+                subText: t(saving ? "admin.leaveSavingHelp" : "admin.leaveHelp")
+            }}
+            modalProps={{ isBlocking: false, className: styles.ownerDialog }}
+        >
+            <DialogFooter>
+                <DefaultButton text={t("admin.leaveStay")} onClick={keepEditing} />
+                {!saving && <PrimaryButton className={styles.primaryButton} text={t("admin.leaveDiscard")} onClick={discardAndContinue} />}
+            </DialogFooter>
+        </Dialog>
+    );
+
     const formatTimestamp = (ts: number): string => {
         return new Date(ts).toLocaleString();
     };
 
     if (authLoading) {
         return (
-            <div className={styles.adminContainer}>
+            <OwnerAccessCard>
                 <Spinner size={SpinnerSize.large} label={t("admin.initializing")} />
-            </div>
+            </OwnerAccessCard>
         );
     }
 
-    if (!adminEnabled) {
+    if (adminEnabled === false) {
         return (
-            <div className={styles.adminContainer}>
-                <h2 className={styles.adminTitle}>{t("admin.title")}</h2>
-                {error && <MessageBar messageBarType={MessageBarType.error}>{error}</MessageBar>}
+            <OwnerAccessCard>
                 <MessageBar>{t("admin.disabled")}</MessageBar>
-                <p>{t("admin.setup")}</p>
-            </div>
+                <details className={styles.setupHelp}>
+                    <summary>{t("admin.setupHelp")}</summary>
+                    <p>{t("admin.setup")}</p>
+                </details>
+                <DefaultButton text={t("admin.retry")} onClick={retryInitialization} />
+            </OwnerAccessCard>
+        );
+    }
+
+    if (adminEnabled === null) {
+        return (
+            <OwnerAccessCard>
+                <MessageBar messageBarType={MessageBarType.error}>{error}</MessageBar>
+                <DefaultButton text={t("admin.retry")} onClick={retryInitialization} />
+            </OwnerAccessCard>
         );
     }
 
     if (!isAuthenticated) {
         return (
-            <div className={styles.adminContainer}>
-                <h2 className={styles.adminTitle}>{t("admin.title")}</h2>
+            <OwnerAccessCard>
+                {accountLabel && (
+                    <p className={styles.accountLabel}>
+                        {t("admin.microsoftAccount")}: {accountLabel}
+                    </p>
+                )}
                 {error && <MessageBar messageBarType={MessageBarType.error}>{error}</MessageBar>}
-                <p>{t("admin.signInHelp")}</p>
-                <PrimaryButton text={t("admin.signIn")} onClick={handleAdminLogin} />
-            </div>
+                {authNotice && <MessageBar>{authNotice}</MessageBar>}
+                <PrimaryButton
+                    className={styles.primaryButton}
+                    text={t(signingIn || loading ? "admin.signingIn" : ownerDenied ? "admin.switchAccount" : "admin.signIn")}
+                    onClick={handleAdminLogin}
+                    disabled={signingIn || loading}
+                />
+                {(signingIn || loading) && <Spinner size={SpinnerSize.small} label={t(loading ? "admin.loading" : "admin.signingIn")} />}
+                {error && !ownerDenied && !signingIn && <DefaultButton text={t("admin.retry")} onClick={retryInitialization} />}
+            </OwnerAccessCard>
         );
     }
 
     if (loading) {
         return (
-            <div className={styles.adminContainer}>
+            <OwnerAccessCard>
                 <Spinner size={SpinnerSize.large} label={t("admin.loading")} />
-            </div>
+            </OwnerAccessCard>
         );
     }
 
     if (!settings) {
         return (
-            <div className={styles.adminContainer}>
-                <h2 className={styles.adminTitle}>{t("admin.title")}</h2>
+            <OwnerAccessCard>
                 {error && <MessageBar messageBarType={MessageBarType.error}>{error}</MessageBar>}
                 <DefaultButton text={t("admin.signOut")} onClick={handleAdminLogout} />
-            </div>
+            </OwnerAccessCard>
         );
     }
 
+    const fieldsDisabled = saving || signingOut;
+
     return (
         <div className={styles.adminContainer}>
-            <h2 className={styles.adminTitle}>{t("admin.settingsTitle")}</h2>
-            <DefaultButton text={t("admin.signOut")} onClick={handleAdminLogout} disabled={saving} />
+            <header className={styles.workspaceHeader}>
+                <div>
+                    <p className={styles.eyebrow}>{getAssistantName(settings)}</p>
+                    <h1 className={styles.adminTitle}>{t("admin.settingsTitle")}</h1>
+                    <p className={styles.workspaceIntro}>{t("admin.workspaceIntro")}</p>
+                </div>
+                <div className={styles.accountControls}>
+                    <span className={styles.accountLabel}>
+                        <Person20Regular aria-hidden />
+                        {t("admin.signedInAs", { account: accountLabel || t("admin.microsoftAccount") })}
+                    </span>
+                    <DefaultButton
+                        text={t(signingOut ? "admin.signingOut" : "admin.signOut")}
+                        onClick={() => requestAction("signOut")}
+                        disabled={fieldsDisabled}
+                        onRenderIcon={() => <ArrowExit20Regular aria-hidden className={styles.buttonIcon} />}
+                    />
+                </div>
+            </header>
 
-            {error && <MessageBar messageBarType={MessageBarType.error}>{error}</MessageBar>}
+            {error && (
+                <MessageBar
+                    messageBarType={MessageBarType.error}
+                    actions={
+                        conflict ? (
+                            <DefaultButton text={t("admin.reloadLatest")} onClick={() => requestAction("reload")} disabled={fieldsDisabled} />
+                        ) : undefined
+                    }
+                >
+                    {error}
+                </MessageBar>
+            )}
             {success && <MessageBar messageBarType={MessageBarType.success}>{t("admin.saved")}</MessageBar>}
+            {saveWarning && <MessageBar messageBarType={MessageBarType.warning}>{t("admin.publicRefreshError")}</MessageBar>}
 
-            <Pivot>
+            <Pivot aria-label={t("admin.settingsTitle")}>
                 <PivotItem headerText={t("admin.settingsTab")}>
-                    <div className={styles.settingsForm}>
-                        {(
-                            [
-                                ["owner_name", "ownerName"],
-                                ["assistant_name", "assistantName"],
-                                ["site_description", "description"],
-                                ["avatar_url", "avatarUrl"],
-                                ["social_image_url", "socialImageUrl"],
-                                ["owner_email", "ownerEmail"],
-                                ["calendar_url", "calendarUrl"],
-                                ["linkedin_url", "linkedinUrl"],
-                                ["tone", "tone"],
-                                ["manager_email", "managerEmail"]
-                            ] as const
-                        ).map(([field, label]) => (
-                            <TextField
-                                key={field}
-                                disabled={saving}
-                                label={t(`admin.fields.${label}`)}
-                                value={settings[field] || ""}
-                                onChange={(_, value) => updateField(field, value || "")}
-                            />
-                        ))}
+                    <div className={styles.editorGrid}>
+                        <div className={styles.settingsForm}>
+                            <section className={styles.settingsSection} aria-labelledby="owner-identity-title">
+                                <div className={styles.sectionHeading}>
+                                    <h2 id="owner-identity-title">{t("admin.sections.identity")}</h2>
+                                    <span className={styles.badge}>{t("admin.publicBadge")}</span>
+                                </div>
+                                <p className={styles.helpText}>{t("admin.sections.identityHelp")}</p>
+                                <div className={styles.fieldGrid}>
+                                    {(
+                                        [
+                                            ["owner_name", "ownerName"],
+                                            ["assistant_name", "assistantName"],
+                                            ["site_description", "description"],
+                                            ["avatar_url", "avatarUrl"],
+                                            ["social_image_url", "socialImageUrl"]
+                                        ] as const
+                                    ).map(([field, label]) => (
+                                        <TextField
+                                            key={field}
+                                            disabled={fieldsDisabled}
+                                            label={t(`admin.fields.${label}`)}
+                                            description={field === "avatar_url" || field === "social_image_url" ? t("admin.imageHelp") : undefined}
+                                            value={settings[field]}
+                                            onChange={(_, value) => updateField(field, value || "")}
+                                        />
+                                    ))}
+                                </div>
+                            </section>
 
-                        <TextField
-                            disabled={saving}
-                            label={t("admin.fields.welcome")}
-                            multiline
-                            rows={3}
-                            value={settings.welcome_message}
-                            onChange={(_, v) => updateField("welcome_message", v || "")}
-                        />
-
-                        <TextField
-                            disabled={saving}
-                            label={t("admin.fields.examples")}
-                            description={t("admin.examplesHelp")}
-                            multiline
-                            rows={4}
-                            value={settings.example_questions?.join("\n") || ""}
-                            onChange={(_, value) => updateField("example_questions", value ? value.split("\n") : [])}
-                        />
-
-                        <Toggle
-                            disabled={saving}
-                            label={t("admin.fields.vacation")}
-                            checked={settings.vacation_mode}
-                            onChange={(_, checked) => updateField("vacation_mode", !!checked)}
-                        />
-
-                        {settings.vacation_mode && (
-                            <TextField
-                                disabled={saving}
-                                label={t("admin.fields.returnDate")}
-                                value={settings.vacation_return_date || ""}
-                                onChange={(_, v) => updateField("vacation_return_date", v || null)}
-                            />
-                        )}
-
-                        <div className={styles.fieldGroup}>
-                            <span className={styles.fieldLabel}>{t("admin.fields.funFacts")}</span>
-                            {settings.fun_facts.map((fact, i) => (
-                                <div key={i} className={styles.funFactItem}>
-                                    <TextField disabled={saving} className={styles.funFactInput} value={fact} onChange={(_, v) => updateFunFact(i, v || "")} />
-                                    <IconButton
-                                        disabled={saving}
-                                        iconProps={{ iconName: "Delete" }}
-                                        onClick={() => removeFunFact(i)}
-                                        ariaLabel={t("admin.removeFunFact")}
+                            <section className={styles.settingsSection} aria-labelledby="owner-conversation-title">
+                                <div className={styles.sectionHeading}>
+                                    <h2 id="owner-conversation-title">{t("admin.sections.conversation")}</h2>
+                                    <span className={styles.badge}>{t("admin.contextBadge")}</span>
+                                </div>
+                                <p className={styles.helpText}>{t("admin.sections.conversationHelp")}</p>
+                                <TextField
+                                    disabled={fieldsDisabled}
+                                    label={t("admin.fields.tone")}
+                                    multiline
+                                    rows={2}
+                                    value={settings.tone}
+                                    onChange={(_, value) => updateField("tone", value || "")}
+                                />
+                                <TextField
+                                    disabled={fieldsDisabled}
+                                    label={t("admin.fields.welcome")}
+                                    multiline
+                                    rows={3}
+                                    value={settings.welcome_message}
+                                    onChange={(_, value) => updateField("welcome_message", value || "")}
+                                />
+                                <TextField
+                                    disabled={fieldsDisabled}
+                                    label={t("admin.fields.examples")}
+                                    description={t("admin.examplesHelp")}
+                                    multiline
+                                    rows={4}
+                                    value={settings.example_questions.join("\n")}
+                                    onChange={(_, value) => updateField("example_questions", value ? value.split("\n") : [])}
+                                />
+                                <div className={styles.fieldGroup}>
+                                    <span className={styles.fieldLabel}>{t("admin.fields.funFacts")}</span>
+                                    {settings.fun_facts.map((fact, index) => (
+                                        <div key={index} className={styles.funFactItem}>
+                                            <TextField
+                                                disabled={fieldsDisabled}
+                                                className={styles.funFactInput}
+                                                ariaLabel={t("admin.factInput", { number: index + 1 })}
+                                                value={fact}
+                                                onChange={(_, value) => updateFunFact(index, value || "")}
+                                            />
+                                            <IconButton
+                                                className={styles.iconButton}
+                                                disabled={fieldsDisabled}
+                                                onRenderIcon={() => <Delete20Regular aria-hidden />}
+                                                onClick={() => removeFunFact(index)}
+                                                ariaLabel={t("admin.removeFunFact", { number: index + 1 })}
+                                            />
+                                        </div>
+                                    ))}
+                                    <DefaultButton
+                                        disabled={fieldsDisabled}
+                                        text={t("admin.addFunFact")}
+                                        onClick={addFunFact}
+                                        onRenderIcon={() => <Add20Regular aria-hidden className={styles.buttonIcon} />}
                                     />
                                 </div>
-                            ))}
-                            <DefaultButton disabled={saving} text={t("admin.addFunFact")} onClick={addFunFact} iconProps={{ iconName: "Add" }} />
-                        </div>
+                                <p className={styles.contextNote}>
+                                    <Info20Regular aria-hidden />
+                                    {t("admin.privacyHelp")}
+                                </p>
+                            </section>
 
-                        <div className={styles.buttonRow}>
-                            <PrimaryButton text={t(saving ? "admin.saving" : "admin.save")} onClick={handleSave} disabled={saving || !hasChanges} />
+                            <section className={styles.settingsSection} aria-labelledby="owner-contact-title">
+                                <div className={styles.sectionHeading}>
+                                    <h2 id="owner-contact-title">{t("admin.sections.contact")}</h2>
+                                    <span className={styles.badge}>{t("admin.publicBadge")}</span>
+                                </div>
+                                <p className={styles.helpText}>{t("admin.sections.contactHelp")}</p>
+                                <div className={styles.fieldGrid}>
+                                    {(
+                                        [
+                                            ["owner_email", "ownerEmail"],
+                                            ["calendar_url", "calendarUrl"],
+                                            ["linkedin_url", "linkedinUrl"]
+                                        ] as const
+                                    ).map(([field, label]) => (
+                                        <TextField
+                                            key={field}
+                                            disabled={fieldsDisabled}
+                                            label={t(`admin.fields.${label}`)}
+                                            value={settings[field]}
+                                            onChange={(_, value) => updateField(field, value || "")}
+                                        />
+                                    ))}
+                                </div>
+                                <Toggle
+                                    disabled={fieldsDisabled}
+                                    label={t("admin.fields.vacation")}
+                                    checked={settings.vacation_mode}
+                                    onChange={(_, checked) => updateField("vacation_mode", !!checked)}
+                                />
+                                {settings.vacation_mode && (
+                                    <TextField
+                                        disabled={fieldsDisabled}
+                                        type="date"
+                                        label={t("admin.fields.returnDate")}
+                                        description={t("admin.returnDateHelp")}
+                                        value={settings.vacation_return_date || ""}
+                                        onChange={(_, value) => updateField("vacation_return_date", value || null)}
+                                    />
+                                )}
+                                <TextField
+                                    disabled={fieldsDisabled}
+                                    label={t("admin.fields.managerEmail")}
+                                    description={t("admin.managerEmailHelp")}
+                                    value={settings.manager_email}
+                                    onChange={(_, value) => updateField("manager_email", value || "")}
+                                />
+                            </section>
                         </div>
+                        <OwnerPreview settings={settings} />
                     </div>
                 </PivotItem>
 
@@ -357,7 +656,12 @@ function Admin() {
                     <div className={styles.analyticsTab}>
                         <div className={styles.analyticsHeader}>
                             <h3>{t("admin.analyticsTitle")}</h3>
-                            <DefaultButton text={t("admin.refresh")} iconProps={{ iconName: "Refresh" }} onClick={loadAnalytics} disabled={analyticsLoading} />
+                            <DefaultButton
+                                text={t("admin.refresh")}
+                                onRenderIcon={() => <ArrowSync20Regular aria-hidden className={styles.buttonIcon} />}
+                                onClick={loadAnalytics}
+                                disabled={analyticsLoading}
+                            />
                         </div>
                         <p>{t("admin.analyticsPrivacy")}</p>
 
@@ -478,6 +782,32 @@ function Admin() {
                     </div>
                 </PivotItem>
             </Pivot>
+            <div className={styles.saveBar} role="region" aria-label={t("admin.saveBarLabel")}>
+                <span className={styles.saveStatus} role="status">
+                    {hasChanges ? <Edit20Regular aria-hidden /> : <Checkmark20Regular aria-hidden />}
+                    <span>{t(saving ? "admin.saving" : hasChanges ? "admin.unsaved" : "admin.allSaved")}</span>
+                </span>
+                <div className={styles.saveActions}>
+                    <DefaultButton
+                        text={t("admin.discard")}
+                        disabled={fieldsDisabled || !hasChanges}
+                        onClick={() => {
+                            setSettings(savedSettings);
+                            setSuccess(false);
+                            setSaveWarning(false);
+                            if (!conflict) setError(null);
+                        }}
+                    />
+                    <PrimaryButton
+                        className={styles.primaryButton}
+                        text={t(saving ? "admin.saving" : "admin.save")}
+                        onRenderIcon={() => <Save20Regular aria-hidden className={styles.buttonIcon} />}
+                        onClick={handleSave}
+                        disabled={fieldsDisabled || !hasChanges}
+                    />
+                </div>
+            </div>
+            {leaveDialog}
         </div>
     );
 }

@@ -3,8 +3,30 @@
 }
 
 html {
-    background: #1a1a2e;
-    color: #f2f2f2;
+    --app-background: #1a1a2e;
+    --app-surface: #22223a;
+    --app-surface-soft: #292942;
+    --app-input: #25253d;
+    --app-hover: #32324e;
+    --app-border: #42425d;
+    --app-border-strong: #777792;
+    --app-text: #f2f2f2;
+    --app-muted: #c1c1d7;
+    --app-accent: #6c63ff;
+    --app-action: #5e56e8;
+    --app-accent-hover: #5951db;
+    --app-focus: #b3aeff;
+    --app-success: #8de0b5;
+    --app-success-soft: rgba(64, 165, 110, 0.14);
+    --app-warning: #f2cf79;
+    --app-warning-soft: rgba(240, 192, 64, 0.14);
+    --app-danger: #ffb3b3;
+    --app-danger-soft: rgba(229, 57, 53, 0.14);
+    --app-overlay: rgba(0, 0, 0, 0.6);
+    --app-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+    height: 100%;
+    background: var(--app-background);
+    color: var(--app-text);
     font-size: 12px; /* Root font size for 320px width screens */
     font-family:
         "Segoe UI",
@@ -56,7 +78,7 @@ body {
     }
 }
 
-/* Public dark defaults; light surfaces provide scoped Fluent palette variables. */
+/* Fluent controls inherit the palette of their containing surface. */
 .ms-Panel-main {
     background: #16213e !important;
     color: #f2f2f2 !important;

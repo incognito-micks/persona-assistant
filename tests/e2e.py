@@ -211,19 +211,47 @@ def owner_auth(page: Page):
             }
         ),
     )
-    page.add_init_script("window.ownerAuthMocks = {signIns: 0, signOuts: 0};")
+    page.add_init_script("""window.ownerAuthMocks = {
+        signIns: 0, signOuts: 0, pauseSignIn: false, cancelSignIn: false,
+        account: {name: 'Example Owner', username: 'owner@example.test'}
+    };""")
     page.route(
         re.compile(r"/assets/adminAuth-[^/]+\.js$"),
         lambda route: route.fulfill(
             content_type="application/javascript",
             body="""export default async () => ({
-                getCachedToken: async () => undefined,
+                getCachedToken: async () => window.ownerAuthMocks.cachedToken,
                 getToken: async () => 'browser-owner-id-token',
-                signIn: async () => {window.ownerAuthMocks.signIns++; return 'browser-owner-id-token';},
+                getAccount: () => window.ownerAuthMocks.account,
+                signIn: async () => {
+                    window.ownerAuthMocks.signIns++;
+                    if (window.ownerAuthMocks.pauseSignIn) {
+                        await new Promise(resolve => {window.ownerAuthMocks.finishSignIn = resolve;});
+                    }
+                    if (window.ownerAuthMocks.cancelSignIn) throw {errorCode: 'user_cancelled'};
+                    return 'browser-owner-id-token';
+                },
                 signOut: async () => {window.ownerAuthMocks.signOuts++;}
             });""",
         ),
     )
+
+
+@pytest.fixture
+def owner_settings(page: Page, public_profile, owner_auth):
+    state = {
+        "settings": {**public_profile, "manager_email": "", "fun_facts": ["Enjoys clear documentation."]},
+        "updates": [],
+    }
+
+    def handle(route: Route):
+        if route.request.method == "PUT":
+            state["updates"].append(route.request.post_data_json)
+            state["settings"].update(route.request.post_data_json)
+        route.fulfill(json=state["settings"], headers={"ETag": '"owner-workspace-version-1"'})
+
+    page.route("**/api/admin/settings", handle)
+    return state
 
 
 def capture_screenshot(page: Page, name: str) -> None:
@@ -515,9 +543,10 @@ def test_public_chat_never_bootstraps_visitor_login(page: Page, live_server_url:
 
 def test_admin_disabled_is_safe_and_does_not_load_msal(page: Page, live_server_url: str, browser_requests):
     page.goto(f"{live_server_url}#/admin")
-    expect(page.get_by_text("Owner administration is not configured.", exact=True)).to_be_visible()
+    expect(page.get_by_text("Owner workspace is not configured.", exact=True)).to_be_visible()
+    page.get_by_text("Deployment setup help", exact=True).click()
     expect(page.get_by_text(re.compile("Public chat still works"))).to_be_visible()
-    expect(page.get_by_role("button", name="Sign in as owner", exact=True)).to_have_count(0)
+    expect(page.get_by_role("button", name="Continue with Microsoft", exact=True)).to_have_count(0)
     assert not any(re.search(r"/(?:authentication|adminAuth)-", request["path"]) for request in browser_requests)
     page.get_by_role("banner").get_by_role("link", name="Alex's AI assistant", exact=True).click()
     expect(page.get_by_role("textbox", name="Your message", exact=True)).to_be_visible()
@@ -533,10 +562,13 @@ def test_admin_non_owner_denial_does_not_affect_public_chat(page: Page, live_ser
 
     page.route("**/api/admin/settings", deny_settings)
     page.goto(f"{live_server_url}#/admin")
-    expect(page.get_by_role("button", name="Sign in as owner", exact=True)).to_be_visible()
+    expect(page.get_by_role("button", name="Continue with Microsoft", exact=True)).to_be_visible()
     assert captured == []
-    page.get_by_role("button", name="Sign in as owner", exact=True).click()
-    expect(page.get_by_text("Access denied. This account is not the configured owner.", exact=True)).to_be_visible()
+    page.get_by_role("button", name="Continue with Microsoft", exact=True).click()
+    expect(
+        page.get_by_text("This Microsoft account does not have owner access. Try a different account.", exact=True)
+    ).to_be_visible()
+    expect(page.get_by_role("button", name="Use another Microsoft account", exact=True)).to_be_visible()
     expect(page.get_by_label("Owner Name", exact=True)).to_have_count(0)
     expect(page.get_by_text("Private server diagnostic must not be shown", exact=True)).to_have_count(0)
     assert len(captured) == 1
@@ -548,7 +580,7 @@ def test_admin_non_owner_denial_does_not_affect_public_chat(page: Page, live_ser
     assert public_calls[0]["authorization"] is None
 
 
-def test_admin_owner_controls_have_readable_light_theme_contrast(
+def test_admin_owner_controls_have_readable_dark_theme_contrast(
     page: Page, live_server_url: str, public_profile, owner_auth
 ):
     settings = {**public_profile, "manager_email": "private-manager@example.test", "fun_facts": []}
@@ -585,26 +617,26 @@ def test_admin_owner_controls_have_readable_light_theme_contrast(
         ),
     )
     page.goto(f"{live_server_url}#/admin")
-    page.get_by_role("button", name="Sign in as owner", exact=True).click()
+    page.get_by_role("button", name="Continue with Microsoft", exact=True).click()
     expect(page.get_by_label("Owner Name", exact=True)).to_have_value(public_profile["owner_name"])
     admin = page.locator('[class*="adminContainer"]')
     assert_text_contrast(page.get_by_text("Owner Name", exact=True))
     assert_text_contrast(page.get_by_label("Owner Name", exact=True))
     for element in admin.locator("label, input, textarea, .ms-Pivot-text").all():
         assert_text_contrast(element)
-    for name in ("Sign out of admin", "Add Fun Fact"):
+    for name in ("Sign out", "Add Fun Fact"):
         assert_text_contrast(page.get_by_role("button", name=name, exact=True).locator(".ms-Button-label"))
     assert_text_contrast(page.get_by_text("Vacation Mode", exact=True))
     page.get_by_role("switch", name="Vacation Mode", exact=True).click()
     assert_text_contrast(page.get_by_text("Vacation Mode", exact=True))
     page.get_by_label("Assistant Name", exact=True).fill("A readable assistant name")
-    assert_text_contrast(page.get_by_role("button", name="Save Settings", exact=True).locator(".ms-Button-label"))
-    page.get_by_role("button", name="Save Settings", exact=True).click()
+    assert_text_contrast(page.get_by_role("button", name="Save changes", exact=True).locator(".ms-Button-label"))
+    page.get_by_role("button", name="Save changes", exact=True).click()
     save_error = page.get_by_text("Unable to save settings. Check the values and try again.", exact=True)
     expect(save_error).to_be_visible()
     assert_text_contrast(save_error)
 
-    page.get_by_role("tab", name="Analytics", exact=True).click()
+    page.get_by_role("tab", name="Usage", exact=True).click()
     page.get_by_role("button", name="Load Analytics", exact=True).click()
     expect(page.get_by_text("Sessions", exact=True)).to_be_visible()
     for element in admin.locator(
@@ -616,6 +648,7 @@ def test_admin_owner_controls_have_readable_light_theme_contrast(
         assert_text_contrast(element)
 
     page.get_by_role("banner").get_by_role("link", name="Alex's AI assistant", exact=True).click()
+    page.get_by_role("button", name="Discard and continue", exact=True).click()
     expect(page.get_by_role("textbox", name="Your message", exact=True)).to_be_visible()
     assert page.locator("html").evaluate("element => getComputedStyle(element).backgroundColor") == "rgb(26, 26, 46)"
     assert page.locator("html").evaluate("element => getComputedStyle(element).color") == "rgb(242, 242, 242)"
@@ -637,12 +670,12 @@ def test_admin_saves_only_changed_fields_and_refreshes_profile(
 
     page.route("**/api/admin/settings", handle_settings)
     page.goto(f"{live_server_url}#/admin")
-    page.get_by_role("button", name="Sign in as owner", exact=True).click()
-    expect(page.get_by_role("heading", name="Admin Settings", exact=True)).to_be_visible()
-    expect(page.get_by_role("button", name="Save Settings", exact=True)).to_be_disabled()
+    page.get_by_role("button", name="Continue with Microsoft", exact=True).click()
+    expect(page.get_by_role("heading", name="Owner workspace", exact=True)).to_be_visible()
+    expect(page.get_by_role("button", name="Save changes", exact=True)).to_be_disabled()
     page.get_by_label("Assistant Name", exact=True).fill("Alex's updated assistant")
-    page.get_by_role("button", name="Save Settings", exact=True).click()
-    expect(page.get_by_text("Settings saved successfully!", exact=True)).to_be_visible()
+    page.get_by_role("button", name="Save changes", exact=True).click()
+    expect(page.get_by_text("Changes saved. Your assistant is up to date.", exact=True)).to_be_visible()
     assert len(updates) == 1
     assert updates[0]["body"] == {"assistant_name": "Alex's updated assistant"}
     assert updates[0]["headers"]["if-match"] == '"profile-revision-1"'
@@ -686,14 +719,305 @@ def test_admin_analytics_labels_sessions_and_omits_raw_questions(
         ),
     )
     page.goto(f"{live_server_url}#/admin")
-    page.get_by_role("button", name="Sign in as owner", exact=True).click()
-    page.get_by_role("tab", name="Analytics", exact=True).click()
+    page.get_by_role("button", name="Continue with Microsoft", exact=True).click()
+    page.get_by_role("tab", name="Usage", exact=True).click()
     expect(page.get_by_text(re.compile("Raw questions and visitor identities are not retained"))).to_be_visible()
     page.get_by_role("button", name="Load Analytics", exact=True).click()
     expect(page.get_by_text("Sessions", exact=True)).to_be_visible()
     expect(page.get_by_text("Unique Users", exact=True)).to_have_count(0)
     expect(page.get_by_text("Chat request", exact=True)).to_be_visible()
     expect(page.get_by_text(re.compile("Legacy raw"))).to_have_count(0)
+
+
+def test_owner_sign_in_is_compact_branded_and_busy(page: Page, live_server_url: str, owner_settings):
+    page.goto(f"{live_server_url}#/admin")
+    button = page.get_by_role("button", name="Continue with Microsoft", exact=True)
+    expect(button).to_be_visible()
+    expect(page.get_by_role("heading", name="Manage your assistant", exact=True)).to_be_visible()
+    expect(page.get_by_role("banner").get_by_role("link", name="Back to assistant", exact=True)).to_be_visible()
+    expect(page.get_by_role("contentinfo")).to_have_count(0)
+    card = page.locator('[class*="authCard"]')
+    box = card.bounding_box()
+    assert box is not None and box["width"] <= 500
+    assert_text_contrast(button.locator(".ms-Button-label"))
+    capture_screenshot(page, "owner-sign-in-desktop")
+    page.set_viewport_size({"width": 390, "height": 844})
+    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    capture_screenshot(page, "owner-sign-in-mobile")
+    page.set_viewport_size({"width": 1280, "height": 900})
+    page.evaluate("window.ownerAuthMocks.pauseSignIn = true")
+    button.click()
+    busy = page.get_by_role("button", name="Opening Microsoft sign-in...", exact=True)
+    expect(busy).to_be_disabled()
+    assert page.evaluate("window.ownerAuthMocks.signIns") == 1
+    page.wait_for_function("typeof window.ownerAuthMocks.finishSignIn === 'function'")
+    page.evaluate("window.ownerAuthMocks.finishSignIn()")
+    expect(page.get_by_role("heading", name="Owner workspace", exact=True)).to_be_visible()
+    expect(page.get_by_text("Signed in as owner@example.test", exact=True)).to_be_visible()
+
+
+def test_owner_sign_in_cancellation_keeps_retry_available(page: Page, live_server_url: str, owner_settings):
+    page.goto(f"{live_server_url}#/admin")
+    button = page.get_by_role("button", name="Continue with Microsoft", exact=True)
+    expect(button).to_be_visible()
+    page.evaluate("window.ownerAuthMocks.cancelSignIn = true")
+    button.click()
+    expect(page.get_by_text("Sign-in was canceled. You can try again.", exact=True)).to_be_visible()
+    expect(button).to_be_enabled()
+    expect(page.get_by_label("Owner Name", exact=True)).to_have_count(0)
+
+
+def test_owner_auth_setup_failure_is_retryable_not_disabled(page: Page, live_server_url: str):
+    state = {"fail": True}
+    page.route(
+        "**/auth_setup_admin",
+        lambda route: (
+            route.fulfill(status=503, json={"error": "Internal diagnostic not for display"})
+            if state["fail"]
+            else route.fulfill(json={"enabled": False})
+        ),
+    )
+    page.goto(f"{live_server_url}#/admin")
+    expect(page.get_by_text("Unable to prepare owner sign-in. Please try again.", exact=True)).to_be_visible()
+    expect(page.get_by_text("Owner workspace is not configured.", exact=True)).to_have_count(0)
+    expect(page.get_by_text("Internal diagnostic not for display", exact=True)).to_have_count(0)
+    state["fail"] = False
+    page.get_by_role("button", name="Try again", exact=True).click()
+    expect(page.get_by_text("Owner workspace is not configured.", exact=True)).to_be_visible()
+
+
+def test_owner_workspace_draft_preview_and_discard(page: Page, live_server_url: str, public_profile, owner_settings):
+    page.goto(f"{live_server_url}#/admin")
+    page.get_by_role("button", name="Continue with Microsoft", exact=True).click()
+    for name in ("Profile & branding", "Conversation", "Contact & availability"):
+        expect(page.get_by_role("heading", name=name, exact=True)).to_be_visible()
+    preview = page.get_by_role("complementary", name="Visitor preview", exact=True)
+    expect(preview.get_by_role("heading", name=public_profile["assistant_name"], exact=True)).to_be_visible()
+    expect(page.get_by_label("Private Manager Email", exact=True)).to_have_count(0)
+    expect(page.get_by_label("Alternate Contact Email", exact=True)).to_be_visible()
+    page.get_by_label("Assistant Name", exact=True).fill("Draft assistant")
+    page.get_by_label("Welcome Message", exact=True).fill("A draft welcome.")
+    page.get_by_label("Example Questions", exact=True).fill("A draft question?\nAnother draft question?")
+    expect(preview.get_by_role("heading", name="Draft assistant", exact=True)).to_be_visible()
+    expect(preview.get_by_text("A draft welcome.", exact=True)).to_be_visible()
+    expect(preview.get_by_text("Another draft question?", exact=True)).to_be_visible()
+    assert page.title() == public_profile["assistant_name"]
+    expect(
+        page.get_by_role("banner").get_by_role("link", name=public_profile["assistant_name"], exact=True)
+    ).to_be_visible()
+    expect(page.get_by_text("You have unsaved changes", exact=True)).to_be_visible()
+    bar = page.get_by_role("region", name="Save your changes", exact=True)
+    box = bar.bounding_box()
+    assert box is not None and 0 <= box["y"] < page.viewport_size["height"]
+    assert owner_settings["updates"] == []
+    unload = """() => {
+        const event = new Event("beforeunload", {cancelable: true});
+        return window.dispatchEvent(event);
+    }"""
+    assert page.evaluate(unload) is False
+    page.get_by_role("button", name="Discard changes", exact=True).click()
+    expect(page.get_by_label("Assistant Name", exact=True)).to_have_value(public_profile["assistant_name"])
+    expect(page.get_by_label("Welcome Message", exact=True)).to_have_value(public_profile["welcome_message"])
+    expect(preview.get_by_role("heading", name=public_profile["assistant_name"], exact=True)).to_be_visible()
+    expect(page.get_by_role("button", name="Save changes", exact=True)).to_be_disabled()
+    assert page.evaluate(unload) is True
+    assert owner_settings["updates"] == []
+
+
+def test_owner_workspace_guards_navigation_without_saving(page: Page, live_server_url: str, owner_settings):
+    page.goto(f"{live_server_url}#/admin")
+    page.get_by_role("button", name="Continue with Microsoft", exact=True).click()
+    page.get_by_label("Assistant Name", exact=True).fill("Unsaved assistant")
+    back = page.get_by_role("banner").get_by_role("link", name="Back to assistant", exact=True)
+    back.click()
+    dialog = page.get_by_role("dialog")
+    expect(dialog).to_have_attribute("aria-modal", "true")
+    expect(dialog.get_by_role("heading", name="Leave without saving?", exact=True)).to_be_visible()
+    page.get_by_role("button", name="Keep editing", exact=True).click()
+    expect(page.get_by_label("Assistant Name", exact=True)).to_have_value("Unsaved assistant")
+    back.click()
+    expect(dialog.get_by_role("heading", name="Leave without saving?", exact=True)).to_be_visible()
+    page.keyboard.press("Escape")
+    expect(page.get_by_label("Assistant Name", exact=True)).to_have_value("Unsaved assistant")
+    expect(page.get_by_role("heading", name="Leave without saving?", exact=True)).to_have_count(0)
+    back.click()
+    page.get_by_role("button", name="Discard and continue", exact=True).click()
+    expect(page.get_by_role("textbox", name="Your message", exact=True)).to_be_visible()
+    assert owner_settings["updates"] == []
+
+
+def test_owner_workspace_guards_sign_out(page: Page, live_server_url: str, owner_settings):
+    page.goto(f"{live_server_url}#/admin")
+    page.get_by_role("button", name="Continue with Microsoft", exact=True).click()
+    page.get_by_label("Assistant Name", exact=True).fill("Unsaved assistant")
+    sign_out = page.get_by_role("button", name="Sign out", exact=True)
+    sign_out.click()
+    dialog = page.get_by_role("dialog")
+    expect(dialog).to_have_attribute("aria-modal", "true")
+    expect(dialog.get_by_role("heading", name="Leave without saving?", exact=True)).to_be_visible()
+    assert page.evaluate("window.ownerAuthMocks.signOuts") == 0
+    page.get_by_role("button", name="Keep editing", exact=True).click()
+    expect(page.get_by_label("Assistant Name", exact=True)).to_have_value("Unsaved assistant")
+    sign_out.click()
+    page.get_by_role("button", name="Discard and continue", exact=True).click()
+    expect(page.get_by_role("button", name="Continue with Microsoft", exact=True)).to_be_visible()
+    expect(page.get_by_label("Owner Name", exact=True)).to_have_count(0)
+    assert page.evaluate("window.ownerAuthMocks.signOuts") == 1
+    assert owner_settings["updates"] == []
+
+
+def test_owner_preview_rejects_unsafe_image_without_request(
+    page: Page, live_server_url: str, owner_settings, browser_requests
+):
+    page.goto(f"{live_server_url}#/admin")
+    page.get_by_role("button", name="Continue with Microsoft", exact=True).click()
+    page.get_by_label("Avatar URL", exact=True).fill("javascript:alert('not executed')")
+    preview = page.get_by_role("complementary", name="Visitor preview", exact=True)
+    expect(
+        preview.get_by_text("Enter a site-relative image path or an HTTPS URL to preview this avatar.", exact=True)
+    ).to_be_visible()
+    assert not any("javascript:" in request["path"] for request in browser_requests)
+    page.get_by_role("button", name="Discard changes", exact=True).click()
+
+
+def test_owner_workspace_mobile_layout(page: Page, live_server_url: str, owner_settings):
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.goto(f"{live_server_url}#/admin")
+    page.get_by_role("button", name="Continue with Microsoft", exact=True).click()
+    expect(page.get_by_role("heading", name="Owner workspace", exact=True)).to_be_visible()
+    expect(page.get_by_role("region", name="Save your changes", exact=True)).to_be_visible()
+    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+    assert_text_contrast(page.get_by_label("Owner Name", exact=True))
+
+
+def test_owner_cached_sign_in_requires_authorized_settings(page: Page, live_server_url: str, owner_settings):
+    page.goto(live_server_url)
+    page.evaluate("window.ownerAuthMocks.cachedToken = 'browser-owner-id-token'")
+    page.get_by_role("banner").get_by_role("link", name="Owner workspace", exact=True).click()
+    expect(page.get_by_role("heading", name="Owner workspace", exact=True)).to_be_visible()
+    expect(page.get_by_label("Owner Name", exact=True)).to_have_value(owner_settings["settings"]["owner_name"])
+    assert page.evaluate("window.ownerAuthMocks.signIns") == 0
+
+
+def test_owner_can_switch_account_after_denial(page: Page, live_server_url: str, public_profile, owner_auth):
+    state = {"allowed": False}
+
+    def handle(route: Route):
+        if not state["allowed"]:
+            route.fulfill(status=403, json={"error": "Owner access required"})
+        else:
+            route.fulfill(json={**public_profile, "manager_email": "", "fun_facts": []})
+
+    page.route("**/api/admin/settings", handle)
+    page.goto(f"{live_server_url}#/admin")
+    page.get_by_role("button", name="Continue with Microsoft", exact=True).click()
+    expect(page.get_by_role("button", name="Use another Microsoft account", exact=True)).to_be_visible()
+    expect(page.get_by_label("Owner Name", exact=True)).to_have_count(0)
+    state["allowed"] = True
+    page.evaluate("window.ownerAuthMocks.account = {name:'Correct Owner',username:'correct-owner@example.test'}")
+    page.get_by_role("button", name="Use another Microsoft account", exact=True).click()
+    expect(page.get_by_label("Owner Name", exact=True)).to_be_visible()
+    expect(page.get_by_text("Signed in as correct-owner@example.test", exact=True)).to_be_visible()
+    assert page.evaluate("window.ownerAuthMocks.signIns") == 2
+
+
+def test_owner_conflict_reload_requires_discard_and_refreshes_profile(
+    page: Page, live_server_url: str, public_profile, owner_auth
+):
+    state = {"settings": {**public_profile, "manager_email": "", "fun_facts": []}, "revision": 1}
+
+    def handle(route: Route):
+        if route.request.method == "PUT":
+            state["settings"]["assistant_name"] = "Saved in another session"
+            public_profile["assistant_name"] = "Saved in another session"
+            state["revision"] = 2
+            route.fulfill(status=412, json={"error": "Revision conflict"})
+        else:
+            route.fulfill(json=state["settings"], headers={"ETag": f'"revision-{state["revision"]}"'})
+
+    page.route("**/api/admin/settings", handle)
+    page.goto(f"{live_server_url}#/admin")
+    page.get_by_role("button", name="Continue with Microsoft", exact=True).click()
+    page.get_by_label("Assistant Name", exact=True).fill("Local draft")
+    page.get_by_role("button", name="Save changes", exact=True).click()
+    expect(
+        page.get_by_text("Another session changed these settings. Reload the latest version before saving.", exact=True)
+    ).to_be_visible()
+    reload_button = page.get_by_role("button", name="Reload latest settings", exact=True)
+    reload_button.click()
+    expect(page.get_by_role("heading", name="Leave without saving?", exact=True)).to_be_visible()
+    page.get_by_role("button", name="Keep editing", exact=True).click()
+    expect(page.get_by_label("Assistant Name", exact=True)).to_have_value("Local draft")
+    reload_button.click()
+    page.get_by_role("button", name="Discard and continue", exact=True).click()
+    expect(page.get_by_label("Assistant Name", exact=True)).to_have_value("Saved in another session")
+    expect(page.get_by_role("button", name="Save changes", exact=True)).to_be_disabled()
+    expect(page.get_by_role("banner").get_by_role("link", name="Saved in another session", exact=True)).to_be_visible()
+
+
+def test_owner_navigation_waits_for_inflight_save(page: Page, live_server_url: str, owner_settings):
+    pending = []
+
+    def hold_save(route: Route):
+        if route.request.method == "PUT":
+            pending.append(route)
+        else:
+            route.fallback()
+
+    page.route("**/api/admin/settings", hold_save)
+    page.goto(f"{live_server_url}#/admin")
+    page.get_by_role("button", name="Continue with Microsoft", exact=True).click()
+    page.get_by_label("Assistant Tone", exact=True).fill("Direct and kind.")
+    with page.expect_request(
+        lambda request: request.method == "PUT" and urlsplit(request.url).path == "/api/admin/settings"
+    ):
+        page.get_by_role("button", name="Save changes", exact=True).click()
+    expect(page.get_by_role("button", name="Saving changes...", exact=True)).to_be_disabled()
+    page.get_by_role("banner").get_by_role("link", name="Back to assistant", exact=True).click()
+    expect(page.get_by_role("heading", name="Saving your changes", exact=True)).to_be_visible()
+    expect(page.get_by_role("button", name="Discard and continue", exact=True)).to_have_count(0)
+    assert len(pending) == 1
+    owner_settings["settings"].update(pending[0].request.post_data_json)
+    pending[0].fulfill(json=owner_settings["settings"], headers={"ETag": '"saved-version-2"'})
+    expect(page.get_by_role("textbox", name="Your message", exact=True)).to_be_visible()
+
+
+def test_owner_save_success_is_distinct_from_public_refresh_failure(page: Page, live_server_url: str, owner_settings):
+    state = {"status_calls": 0}
+
+    def status(route: Route):
+        state["status_calls"] += 1
+        if state["status_calls"] == 1:
+            route.fulfill(json=owner_settings["settings"])
+        else:
+            route.fulfill(status=503, json={"error": "Temporary status failure"})
+
+    page.route("**/api/status", status)
+    page.goto(f"{live_server_url}#/admin")
+    page.get_by_role("button", name="Continue with Microsoft", exact=True).click()
+    page.get_by_label("Assistant Name", exact=True).fill("Saved assistant")
+    page.get_by_role("button", name="Save changes", exact=True).click()
+    expect(page.get_by_text("Changes saved. Your assistant is up to date.", exact=True)).to_be_visible()
+    expect(
+        page.get_by_text(
+            "Your saved settings are up to date, but the public profile could not refresh. Reload the page to see the latest version.",
+            exact=True,
+        )
+    ).to_be_visible()
+    assert owner_settings["updates"] == [{"assistant_name": "Saved assistant"}]
+    expect(page.get_by_role("button", name="Save changes", exact=True)).to_be_disabled()
+
+
+@pytest.mark.parametrize("authenticated", [False, True])
+def test_owner_workspace_accessibility(page: Page, live_server_url: str, owner_settings, authenticated):
+    page.goto(f"{live_server_url}#/admin")
+    button = page.get_by_role("button", name="Continue with Microsoft", exact=True)
+    expect(button).to_be_visible()
+    if authenticated:
+        button.click()
+        expect(page.get_by_label("Owner Name", exact=True)).to_be_visible()
+    results = Axe().run(page)
+    assert results.violations_count == 0, results.generate_report()
 
 
 def test_streaming_preserves_multiturn_messages_and_session(page: Page, live_server_url: str):

@@ -1,4 +1,4 @@
-import { Outlet, Link } from "react-router-dom";
+import { Outlet, Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import styles from "./Layout.module.css";
 
@@ -9,6 +9,8 @@ import { getAssistantName, getAvatarUrl } from "../../profile";
 const Layout = () => {
     const { t } = useTranslation();
     const { publicStatus } = useAppContext();
+    const { pathname } = useLocation();
+    const isOwnerWorkspace = pathname === "/admin" || pathname.startsWith("/admin/");
     const assistantName = getAssistantName(publicStatus);
     const contacts = [
         publicStatus?.owner_email ? { href: `mailto:${publicStatus.owner_email}`, label: t("profile.email") } : null,
@@ -25,8 +27,8 @@ const Layout = () => {
                         <img src={getAvatarUrl(publicStatus)} alt="" className={styles.headerAvatar} />
                         <h3 className={styles.headerTitle}>{assistantName}</h3>
                     </Link>
-                    <Link to="/admin" className={styles.ownerLink}>
-                        {t("admin.ownerLink")}
+                    <Link to={isOwnerWorkspace ? "/" : "/admin"} className={styles.ownerLink}>
+                        {t(isOwnerWorkspace ? "admin.backToChat" : "admin.ownerLink")}
                     </Link>
                 </div>
                 {publicStatus?.vacation_mode && (
@@ -42,7 +44,7 @@ const Layout = () => {
                 <Outlet />
             </main>
 
-            {contacts.length > 0 && (
+            {!isOwnerWorkspace && contacts.length > 0 && (
                 <footer className={styles.contactFooter}>
                     {contacts.map(contact => (
                         <a key={contact.href} href={contact.href} className={styles.contactLink} target="_blank" rel="noopener noreferrer">

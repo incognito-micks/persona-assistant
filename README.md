@@ -28,6 +28,8 @@ The MIT license covers this project's source, not every external component or se
 
 No Python or TypeScript edits are needed to change persona. Empty contact links are hidden. Settings precedence is built-in neutral defaults, profile file, then persisted owner overrides. Changing the profile file does not overwrite fields already saved in Cosmos.
 
+Once [owner access](docs/operations.md#owner-access) is configured, open `/#/admin` for the owner workspace. **Personalize** groups branding, conversation, and contact/availability settings, with a draft visitor preview. Edits are not published until **Save changes** succeeds; **Discard changes** reverts them, and leaving or signing out prompts before abandoning unsaved edits. **Usage** shows operational summaries, not private visitor conversations or verified unique people.
+
 For private source files outside the checkout, set `PROFILE_PATH` and `KNOWLEDGE_DATA_DIR` when preparing the package. They select build inputs; they are not container filesystem paths. Never commit a private profile, credentials, or private knowledge. See [personalization and packaging](docs/personalization-and-packaging.md).
 
 ## Local Development
