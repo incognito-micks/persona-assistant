@@ -36,6 +36,14 @@ Scan locally for credentials and unintended personal data. Rotate credentials th
 
 Private reporting is a recommended disclosure practice, not a condition of the MIT license. Open-sourcing the code does not require publishing a personal email address or providing a support SLA.
 
+## Dependency Maintenance
+
+The backend installs the pinned [runtime requirements](app/backend/requirements.txt). Keep security minimums in [requirements.in](app/backend/requirements.in), including deliberate floors for vulnerable transitive dependencies, and regenerate the lock with the repository's documented targeted upgrade command. Development, scripts, and evaluation requirements include that runtime lock; do not duplicate its pins in those files.
+
+Triage alerts by advisory and affected package, not just the number of inherited lockfile records. Distinguish runtime exposure from build-tool risks and conditional API usage, but do not dismiss an alert merely because an exploit has not been demonstrated. Check patched-version ranges and resolver compatibility, then run the relevant offline regressions. Major migrations and advisories without a compatible fix require explicit follow-up rather than forced dependency overrides.
+
+Updating source requirements does not patch a running deployment. Rebuild and redeploy through the authorized release process before considering a hosted instance updated.
+
 ## Validation Boundaries
 
 Offline tests and infrastructure compilation do not validate a cloud deployment, directory configuration, quotas, gateway policy, real microphone, or every supported browser. Complete those checks before claiming production readiness.

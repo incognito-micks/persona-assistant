@@ -7,14 +7,21 @@ azure-cognitiveservices-speech
 azure-cosmos
 uvicorn
 gunicorn==26.2.0
-aiohttp
+aiohttp>=3.14.4
 azure-monitor-opentelemetry
 opentelemetry-instrumentation-asgi
 opentelemetry-instrumentation-httpx
 opentelemetry-instrumentation-aiohttp-client
 cryptography
-PyJWT
+PyJWT>=2.15.0
 python-dotenv
 prompty
 rich
 typing-extensions
+
+# Security and compatibility floors for shared transitive dependencies.
+anyio>=4.14.2
+azure-core>=1.38.0
+certifi>=2026.10.19
+propcache>=0.4.1
+urllib3>=2.8.0

@@ -636,7 +636,7 @@ async def test_verified_claim_failures_remain_auth_errors(monkeypatch, jwks_endp
 async def test_other_algorithms_are_rejected_before_fetching_keys(jwks_endpoint, algorithm):
     token, public_key, claims = create_mock_jwt()
     token = jwt.encode(
-        claims, "test-key" if algorithm == "HS256" else None, algorithm=algorithm, headers={"kid": "mock_kid"}
+        claims, "test-key" * 4 if algorithm == "HS256" else None, algorithm=algorithm, headers={"kid": "mock_kid"}
     )
     helper = create_authentication_helper()
 

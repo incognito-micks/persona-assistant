@@ -10,6 +10,7 @@ import aiohttp
 import jwt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+from jwt.types import Options
 
 JWKS_CACHE_TTL_SECONDS = 300
 JWKS_REFRESH_COOLDOWN_SECONDS = 30
@@ -341,7 +342,7 @@ class AuthenticationHelper:
             rsa_key = await self.create_pem_format(jwks, token)
             if rsa_key:
                 try:
-                    options = (
+                    options: Options = (
                         {"require": ["exp", "iat", "nbf", "sub", "tid", "oid", "nonce"]}
                         if self.owner_authentication_enabled
                         else {}

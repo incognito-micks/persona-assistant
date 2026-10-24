@@ -161,7 +161,7 @@ def parse_server_event(data: str) -> Optional[dict[str, str]]:
     return event
 
 
-async def wait_for_session_update(upstream_ws: aiohttp.ClientWebSocketResponse) -> None:
+async def wait_for_session_update(upstream_ws: aiohttp.ClientWebSocketResponse[bool]) -> None:
     remaining_events = MAX_SETUP_EVENTS
     while remaining_events > 0:
         remaining_events -= 1
@@ -182,7 +182,7 @@ async def wait_for_session_update(upstream_ws: aiohttp.ClientWebSocketResponse) 
     raise RealtimeProtocolError(1011, "Realtime service unavailable")
 
 
-async def relay_messages(upstream_ws: aiohttp.ClientWebSocketResponse) -> None:
+async def relay_messages(upstream_ws: aiohttp.ClientWebSocketResponse[bool]) -> None:
     async def client_to_server():
         event_budget = float(MAX_CLIENT_EVENTS_PER_SECOND)
         byte_budget = float(MAX_CLIENT_BYTES_PER_SECOND)

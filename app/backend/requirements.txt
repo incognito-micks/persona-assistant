@@ -6,14 +6,15 @@ aiofiles==24.1.0
     #   quart
 aiohappyeyeballs==2.6.1
     # via aiohttp
-aiohttp==3.12.14
+aiohttp==3.14.4
     # via -r requirements.in
 aiosignal==1.4.0
     # via aiohttp
 annotated-types==0.7.0
     # via pydantic
-anyio==4.4.0
+anyio==4.15.1
     # via
+    #   -r requirements.in
     #   httpx
     #   openai
 asgiref==3.10.0
@@ -24,8 +25,9 @@ attrs==25.3.0
     # via aiohttp
 azure-cognitiveservices-speech==1.40.0
     # via -r requirements.in
-azure-core==1.35.0
+azure-core==1.38.2
     # via
+    #   -r requirements.in
     #   azure-core-tracing-opentelemetry
     #   azure-cosmos
     #   azure-identity
@@ -48,8 +50,9 @@ blinker==1.9.0
     # via
     #   flask
     #   quart
-certifi==2024.7.4
+certifi==2026.10.19
     # via
+    #   -r requirements.in
     #   httpcore
     #   httpx
     #   msrest
@@ -255,8 +258,9 @@ priority==2.0.0
     # via hypercorn
 prompty==0.1.50
     # via -r requirements.in
-propcache==0.2.0
+propcache==0.4.1
     # via
+    #   -r requirements.in
     #   aiohttp
     #   yarl
 psutil==7.1.2
@@ -269,7 +273,7 @@ pydantic-core==2.41.4
     # via pydantic
 pygments==2.19.2
     # via rich
-pyjwt==2.10.1
+pyjwt==2.15.0
     # via
     #   -r requirements.in
     #   msal
@@ -299,13 +303,9 @@ requests-oauthlib==2.0.0
 rich==14.1.0
     # via -r requirements.in
 six==1.16.0
-    # via
-    #   azure-core
-    #   isodate
+    # via isodate
 sniffio==1.3.1
-    # via
-    #   anyio
-    #   openai
+    # via openai
 taskgroup==0.2.2
     # via hypercorn
 tiktoken==0.12.0
@@ -314,9 +314,10 @@ tomli==2.2.1
     # via hypercorn
 tqdm==4.66.5
     # via openai
-typing-extensions==4.15.0
+typing-extensions==4.16.0
     # via
     #   -r requirements.in
+    #   aiohttp
     #   aiosignal
     #   anyio
     #   asgiref
@@ -332,13 +333,16 @@ typing-extensions==4.15.0
     #   opentelemetry-semantic-conventions
     #   pydantic
     #   pydantic-core
+    #   pyjwt
     #   taskgroup
     #   typing-inspection
     #   uvicorn
 typing-inspection==0.4.2
     # via pydantic
-urllib3==2.5.0
-    # via requests
+urllib3==2.8.0
+    # via
+    #   -r requirements.in
+    #   requests
 uvicorn==0.30.6
     # via -r requirements.in
 werkzeug==3.1.3
@@ -354,7 +358,7 @@ wrapt==1.16.0
     #   opentelemetry-instrumentation-urllib3
 wsproto==1.2.0
     # via hypercorn
-yarl==1.17.2
+yarl==1.25.1
     # via aiohttp
 zipp==3.21.0
     # via importlib-metadata
