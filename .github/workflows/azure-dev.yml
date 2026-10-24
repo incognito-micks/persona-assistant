@@ -25,19 +25,19 @@ jobs:
       ADMIN_USER_OID: ${{ vars.ADMIN_USER_OID }}
       DISABLE_PUBLIC_ACCESS: ${{ vars.DISABLE_PUBLIC_ACCESS }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: app/frontend/package-lock.json
 
-      - uses: Azure/setup-azd@v2.2.1
+      - uses: Azure/setup-azd@v2.4.0
 
       - name: Install hook dependencies and validate local inputs
         run: |
@@ -47,7 +47,7 @@ jobs:
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Sign in using workload identity federation
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
