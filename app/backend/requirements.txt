@@ -277,7 +277,7 @@ pyjwt==2.15.0
     # via
     #   -r requirements.in
     #   msal
-python-dotenv==1.1.1
+python-dotenv==1.2.4
     # via
     #   -r requirements.in
     #   prompty
