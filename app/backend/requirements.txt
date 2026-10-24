@@ -21,7 +21,7 @@ asgiref==3.10.0
     # via opentelemetry-instrumentation-asgi
 attrs==25.3.0
     # via aiohttp
-azure-cognitiveservices-speech==1.40.0
+azure-cognitiveservices-speech==1.52.0
     # via -r requirements.in
 azure-core==1.38.2
     # via
