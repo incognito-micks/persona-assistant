@@ -51,6 +51,8 @@ Use fictional fixtures/media. Review publication rights and working/staged trees
 
 Use the repository `.venv`, existing tooling, and mocked services. Run a focused test first:
 
+When Bicep is installed, warm its public module cache with `az bicep restore --file infra/main.bicep` before offline tests. Do not remove `--no-restore` from the compilation fixtures or introduce network/service calls inside tests. Mock telemetry configuration/instrumentors in unit tests so dummy connection strings never start live exporters.
+
 ```sh
 source .venv/bin/activate
 python -m pytest tests/test_profile.py tests/test_chatapproach.py

@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 MAIN = (ROOT / "infra/main.bicep").read_text(encoding="utf-8")
@@ -57,6 +58,16 @@ def module(template, name):
         for item in template["resources"]
         if item["type"] == "Microsoft.Resources/deployments" and item["name"] == name
     )
+
+
+def test_python_ci_bootstraps_public_modules_before_offline_infrastructure_tests():
+    workflow = yaml.safe_load((ROOT / ".github/workflows/python-test.yaml").read_text(encoding="utf-8"))
+    steps = workflow["jobs"]["test_package"]["steps"]
+    names = [step.get("name") for step in steps]
+    restore = next(step for step in steps if step.get("name") == "Restore public Bicep modules for offline tests")
+    assert restore["if"] == "runner.os != 'Windows'"
+    assert restore["run"] == "az bicep restore --file infra/main.bicep"
+    assert names.index(restore["name"]) < names.index("Run Python tests")
 
 
 def test_only_location_environment_and_owner_setup_are_required(compiled_main):

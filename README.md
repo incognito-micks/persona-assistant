@@ -42,6 +42,8 @@ npm ci --prefix app/frontend
 
 The tokenizer warm-up downloads public vocabulary tables, not application data. Container builds cache these tables; network-restricted non-container environments must also prepare the cache.
 
+If Bicep is installed, restore its public module dependencies once before running the offline infrastructure tests: `az bicep restore --file infra/main.bicep`. This downloads published modules, not application data, and does not provision resources. The tests deliberately compile with `--no-restore`; fresh CI runners perform this bootstrap explicitly.
+
 For live chat, copy [.env.example](.env.example) to an ignored root `.env` and supply your model service. Authenticate your local Azure development credential. Live requests use paid model services; unit and mocked browser tests do not.
 
 The VS Code `Development` task runs Vite and Quart. Alternatively:

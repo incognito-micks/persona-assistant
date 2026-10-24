@@ -185,4 +185,24 @@ async def test_app_config_for_reasoning_without_streaming(monkeypatch, minimal_e
 def test_app_enables_azure_monitor_when_connection_string_set(monkeypatch):
     mock_connection_string = "InstrumentationKey=12345678-1234-1234-1234-123456789012"
     monkeypatch.setenv("APPLICATIONINSIGHTS_CONNECTION_STRING", mock_connection_string)
+    configure = mock.Mock()
+    aiohttp_instrumentor = mock.Mock()
+    httpx_instrumentor = mock.Mock()
+    middleware = mock.Mock(side_effect=lambda application: application)
+    monkeypatch.setattr(app, "configure_azure_monitor", configure)
+    monkeypatch.setattr(app, "AioHttpClientInstrumentor", aiohttp_instrumentor)
+    monkeypatch.setattr(app, "HTTPXClientInstrumentor", httpx_instrumentor)
+    monkeypatch.setattr(app, "OpenTelemetryMiddleware", middleware)
+
     app.create_app()
+
+    configure.assert_called_once_with(
+        instrumentation_options={
+            "django": {"enabled": False},
+            "psycopg2": {"enabled": False},
+            "fastapi": {"enabled": False},
+        }
+    )
+    aiohttp_instrumentor.return_value.instrument.assert_called_once_with()
+    httpx_instrumentor.return_value.instrument.assert_called_once_with()
+    middleware.assert_called_once()
