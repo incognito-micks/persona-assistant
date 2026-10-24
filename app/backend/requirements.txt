@@ -349,7 +349,7 @@ werkzeug==3.1.9
     #   -r requirements.in
     #   flask
     #   quart
-wrapt==1.16.0
+wrapt==2.5.1
     # via
     #   opentelemetry-instrumentation
     #   opentelemetry-instrumentation-aiohttp-client
