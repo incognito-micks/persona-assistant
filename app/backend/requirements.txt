@@ -263,9 +263,9 @@ psutil==7.1.2
     # via azure-monitor-opentelemetry-exporter
 pycparser==2.22
     # via cffi
-pydantic==2.12.3
+pydantic==2.14.1
     # via openai
-pydantic-core==2.41.4
+pydantic-core==2.50.1
     # via pydantic
 pygments==2.19.2
     # via rich
@@ -314,7 +314,7 @@ tomli==2.2.1
     # via hypercorn
 tqdm==4.66.5
     # via openai
-typing-extensions==4.15.0
+typing-extensions==4.16.0
     # via
     #   -r requirements.in
     #   aiosignal
