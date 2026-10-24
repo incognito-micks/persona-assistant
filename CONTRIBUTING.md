@@ -13,7 +13,7 @@ Contributions to Persona Assistant are welcome. By submitting a contribution, co
 
 ## Setup And Checks
 
-Follow [README.md](README.md#local-development) and use the repository virtual environment.
+Follow [README.md](README.md#local-development) and use the repository virtual environment. Run every block below from the repository root; the subshell type checks do not change your terminal's working directory. The examples use Bash.
 
 ```sh
 source .venv/bin/activate
@@ -24,18 +24,19 @@ python -m black . --check
 
 ```sh
 source .venv/bin/activate
-cd app/backend && mypy . --config-file=../../pyproject.toml
+(cd app/backend && mypy . --config-file=../../pyproject.toml)
 ```
 
 ```sh
 source .venv/bin/activate
-cd scripts && mypy . --config-file=../pyproject.toml
+(cd scripts && mypy . --config-file=../pyproject.toml)
 ```
 
 ```sh
 npm ci --prefix app/frontend
 npm run build --prefix app/frontend
 source .venv/bin/activate
+python -m playwright install chromium
 python -m pytest tests/e2e.py
 ```
 
@@ -46,6 +47,8 @@ For coverage, run `python -m pytest --cov --cov-report=annotate:cov_annotate` an
 Use the existing Prettier configuration for frontend changes and markdownlint configuration for documentation. Validate local documentation links.
 
 Before a template release, run `python scripts/check_release.py` for working-tree hygiene and `python scripts/check_release.py --staged` for the exact index. These local checks print categories/paths, never secret values. They are not a complete credential, history, or publication-rights audit. The optional pre-commit configuration includes the staged check; a private or unstaged sample must be reconciled before a public commit.
+
+These checks are specific to publishing the fictional template, not a general approval mechanism for someone's personal portfolio. See [template contributions versus personal deployments](docs/personalization-and-packaging.md#template-contributions-versus-personal-deployments) before committing customized profile or knowledge files.
 
 ## Pull Requests
 

@@ -14,6 +14,8 @@ Visitors do not need accounts. Browser history is local. Owner-only administrati
 
 [profile.json](../profile.json) is validated at startup and packaging. It supplies identity, tone, branding, links, and examples. Neutral built-in defaults are overridden by the profile file and then persisted owner fields. Existing persisted fields are not silently overwritten when changing the profile file.
 
+See [personalization and packaging](personalization-and-packaging.md) for selecting sources and preparing an artifact without application-code edits.
+
 The complete markdown knowledge set is loaded at startup and is available to both conversation modes. Text and voice share the same persona rules. The assistant identifies itself as AI and does not invent facts or commit the owner to actions.
 
 The realtime service produces input transcription events identified by `item_id`. The relay forwards only bounded text and its correlation ID; the browser updates the matching spoken turn even when recognition finishes after an AI reply begins. Partial text is not fabricated, and a pending/generic marker remains if no usable recognition arrives. Voice conversation state is not persisted to browser text-chat history or Cosmos.
@@ -47,3 +49,5 @@ Text prompt budgeting reserves output and a safety margin, then removes oldest c
 Rate-limit and voice-admission records use logical expiry and Cosmos item TTL. The settings container default never expires durable owner settings. Hosted startup requires this shared storage; local development can use process-scoped fallback limits, which are not replica-global production controls.
 
 Operational analytics do not store new raw visitor questions, owner identities, or detailed errors. Session counts are approximate and not verified unique people. Existing records and retention are not changed by that privacy default.
+
+See [operations](operations.md) for the numerical admission defaults, owner setup, updates, kill switch, and teardown.

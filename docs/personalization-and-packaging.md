@@ -1,6 +1,6 @@
-# Knowledge, Profiles, And Packaging
+# Personalization And Packaging
 
-Despite the historical filename, this is file-based configuration, not an ingestion service.
+Personalization uses profile configuration and local markdown, not an ingestion service.
 
 ## Public Example And Private Sources
 
@@ -11,6 +11,17 @@ Only load material you have permission to share with every visitor. Do not inclu
 The profile validator rejects unknown fields, malformed values, unsafe image/link schemes, and oversized files. A configured missing/unreadable profile or knowledge directory fails explicitly.
 
 The markdown loader sorts filenames, skips empty files, and formats each source with a filename label. It fails for missing, empty, or unreadable required knowledge. Nested files and non-markdown content are not ingested.
+
+## Template Contributions Versus Personal Deployments
+
+The reusable template and your deployed persona have different publication needs:
+
+- **Contributing to the template:** keep committed sample content fictional. The [publication checker](../scripts/check_release.py) expects the sample owner name `Alex Morgan` and the two example markdown filenames. Its optional pre-commit hook checks the staged tree, so replacing the committed sample with a real owner name can deliberately block a template commit.
+- **Deploying your own persona:** prefer profile and knowledge files outside the checkout, selected with `PROFILE_PATH` and `KNOWLEDGE_DATA_DIR`. You can also use ignored local inputs, such as `profile.local.json` and a directory under `private/`. They are packaging inputs, not additional application-code changes.
+
+Editing the bundled sample is fine for local experimentation. Restore fictional examples before submitting template contributions. A deliberately personalized public fork needs its own content review and publication policy; the template checker does not establish consent or publication rights, and passing it does not prove content is private-data-free.
+
+Do not put secrets in either public or private persona inputs: the selected knowledge and profile can be supplied to model services and disclosed to visitors.
 
 ## Prepare A Deployment Package
 
@@ -26,7 +37,7 @@ For external sources, set `PROFILE_PATH` and `KNOWLEDGE_DATA_DIR` in the environ
 
 The script validates the selected inputs, refreshes generated backend markdown, removes stale staged markdown, and bundles the profile. Vite prepares public assets and the metadata placeholders consumed by Quart.
 
-Do not edit or commit generated [backend data](../app/backend/data) or the generated backend profile. The Dockerfile copies prepared application assets; it does not run a frontend build.
+Do not edit or commit generated `app/backend/data/work`, `app/backend/profile.json`, or `app/backend/static` outputs. These paths are intentionally absent from the published source tree. The [Dockerfile](../app/backend/Dockerfile) copies prepared application assets; it does not run a frontend build.
 
 Changing knowledge requires restart/repackaging. Changing a profile file fills defaults but does not replace fields already persisted through the owner UI. Back up existing settings before an intentional profile migration.
 

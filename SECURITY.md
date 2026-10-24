@@ -6,9 +6,15 @@ Persona Assistant is an independent open-source template, not a Microsoft-operat
 
 Do not disclose credentials, private data, or exploitable details in a public issue.
 
-Use this repository's **Security > Report a vulnerability** flow when private reporting is enabled. If that option is unavailable, ask a maintainer for a private reporting channel without posting sensitive details. Repository maintainers must configure private reporting or a monitored private contact before publishing a supported release.
+For a public repository with private vulnerability reporting enabled, use **Security > Advisories > Report a vulnerability**. This sends a private report to the repository maintainers; no public email address is necessary.
+
+Maintainers should [enable GitHub private vulnerability reporting](https://docs.github.com/en/code-security/how-tos/report-and-fix-vulnerabilities/configure-vulnerability-reporting/configure-for-a-repository) when making the repository public. GitHub does not offer that reporting feature while a repository is private. This document does not claim that an unavailable reporting form is already enabled.
+
+If the button is unavailable, open a minimal issue asking maintainers to enable private reporting or arrange a private channel. Do not include the vulnerability, reproduction, credentials, or affected private data in that issue; wait for a private route before sharing those details.
 
 Include affected versions, prerequisites, impact, and a minimal reproduction using fictional data. Reports about this independent adaptation should not be sent to the upstream Microsoft project unless the issue also affects that project.
+
+Until a versioned support policy is published, include the affected commit SHA and check whether the issue also affects the current default branch. There is no guaranteed response time or support commitment for arbitrary forks.
 
 ## Deployment Responsibilities
 
@@ -27,6 +33,8 @@ Include affected versions, prerequisites, impact, and a minimal reproduction usi
 Review the working tree **and staged tree**, any existing history, build artifacts, screenshots, logs, and bundled knowledge. An ignore rule does not remove previously staged or committed material.
 
 Scan locally for credentials and unintended personal data. Rotate credentials that were exposed; deleting the source file is not sufficient. Review rights to all sample content and media. Do not send private repository contents to an external scanning service without authorization.
+
+Private reporting is a recommended disclosure practice, not a condition of the MIT license. Open-sourcing the code does not require publishing a personal email address or providing a support SLA.
 
 ## Validation Boundaries
 
