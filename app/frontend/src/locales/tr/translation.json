@@ -176,7 +176,7 @@
         "releaseError": "Sesli sohbetin ses kaynakları serbest bırakılamadı. Tekrar denemeden önce sayfayı yeniden yükleyin.",
         "listeningPrompt": "Dinleniyor... konuşmaya başlayın",
         "startPrompt": "Sesli bir konuşma başlatmak için aşağıdaki düğmeye tıklayın",
-        "transcriptNotice": "Yapay zekâ yanıtlarının metni, mevcut olduğunda gösterilir. Sesli sohbet, söylediklerinizi yazıya dökmeden çalışır."
+        "transcriptNotice": "Konuşmanız yazıya dökülür ve mevcut olduğunda yapay zekâ yanıtlarının metniyle birlikte gösterilir. Dökümlerde konuşma tanıma hataları olabilir."
     },
     "admin": {
         "ownerLink": "Profil sahibi yönetimi",

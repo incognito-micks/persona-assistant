@@ -4,7 +4,7 @@ name: persona-assistant
 metadata:
   template: persona-assistant@1.0.0
 requiredVersions:
-  azd: ">= 1.17.0"
+  azd: ">= 1.37.1"
 services:
   backend:
     project: ./app/backend
@@ -73,11 +73,14 @@ hooks:
   postprovision:
     windows:
       shell: pwsh
-      run: ./scripts/auth_update.ps1
+      run: |
+        $ErrorActionPreference = "Stop"
+        & ./scripts/auth_update.ps1
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       interactive: true
       continueOnError: false
     posix:
       shell: sh
-      run: ./scripts/auth_update.sh
+      run: sh ./scripts/auth_update.sh
       interactive: true
       continueOnError: false

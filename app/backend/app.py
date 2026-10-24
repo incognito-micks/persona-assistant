@@ -54,6 +54,7 @@ from config import (
     CONFIG_RATE_LIMITER,
     CONFIG_REALTIME_DEPLOYMENT,
     CONFIG_REALTIME_ENABLED,
+    CONFIG_REALTIME_TRANSCRIPTION_DEPLOYMENT,
     CONFIG_REALTIME_VOICE,
     CONFIG_SPEECH_INPUT_ENABLED,
     CONFIG_SPEECH_OUTPUT_AZURE_ENABLED,
@@ -504,6 +505,7 @@ async def setup_clients():
     USE_CHAT_HISTORY_COSMOS = os.getenv("USE_CHAT_HISTORY_COSMOS", "").lower() == "true"
     USE_REALTIME_VOICE = os.getenv("USE_REALTIME_VOICE", "true").lower() == "true"
     AZURE_OPENAI_REALTIME_DEPLOYMENT = os.getenv("AZURE_OPENAI_REALTIME_DEPLOYMENT", "voice")
+    AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT = os.getenv("AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT", "transcription")
     AZURE_OPENAI_REALTIME_VOICE = os.getenv("AZURE_OPENAI_REALTIME_VOICE", "alloy")
 
     RUNNING_ON_AZURE = os.getenv("WEBSITE_HOSTNAME") is not None or os.getenv("RUNNING_IN_PRODUCTION") is not None
@@ -587,6 +589,7 @@ async def setup_clients():
     # Realtime voice config
     current_app.config[CONFIG_REALTIME_ENABLED] = USE_REALTIME_VOICE
     current_app.config[CONFIG_REALTIME_DEPLOYMENT] = AZURE_OPENAI_REALTIME_DEPLOYMENT
+    current_app.config[CONFIG_REALTIME_TRANSCRIPTION_DEPLOYMENT] = AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT
     current_app.config[CONFIG_REALTIME_VOICE] = AZURE_OPENAI_REALTIME_VOICE
     current_app.config["azure_openai_endpoint"] = azure_openai_endpoint
 

@@ -220,7 +220,7 @@
         "releaseError": "Unable to release voice audio. Please reload the page before trying again.",
         "listeningPrompt": "Listening... speak to begin",
         "startPrompt": "Click the button below to start a voice conversation",
-        "transcriptNotice": "AI reply text is shown when available. Voice chat works without transcribing your spoken words."
+        "transcriptNotice": "Your speech is transcribed and shown alongside AI reply text when available. Transcriptions may contain recognition mistakes."
     },
     "admin": {
         "ownerLink": "Owner admin",

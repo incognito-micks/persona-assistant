@@ -176,7 +176,7 @@
         "releaseError": "De audiobronnen van de spraakchat konden niet worden vrijgegeven. Herlaad de pagina voordat je het opnieuw probeert.",
         "listeningPrompt": "Aan het luisteren... begin met spreken",
         "startPrompt": "Klik op de knop hieronder om een spraakgesprek te starten",
-        "transcriptNotice": "De tekst van AI-antwoorden wordt getoond als die beschikbaar is. Spraakchat werkt zonder je gesproken woorden uit te schrijven."
+        "transcriptNotice": "Je spraak wordt uitgeschreven en, indien beschikbaar, samen met de tekst van AI-antwoorden getoond. Transcripties kunnen herkenningsfouten bevatten."
     },
     "admin": {
         "ownerLink": "Beheer voor de eigenaar",

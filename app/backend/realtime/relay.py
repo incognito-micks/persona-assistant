@@ -18,6 +18,7 @@ from config import (
     CONFIG_KNOWLEDGE_SOURCES,
     CONFIG_REALTIME_DEPLOYMENT,
     CONFIG_REALTIME_ENABLED,
+    CONFIG_REALTIME_TRANSCRIPTION_DEPLOYMENT,
     CONFIG_REALTIME_VOICE,
 )
 from core.authentication import AuthError
@@ -42,6 +43,7 @@ SETUP_TIMEOUT_SECONDS = 20
 MAX_SETUP_EVENTS = 16
 MAX_UPSTREAM_MESSAGE_BYTES = 1024 * 1024
 MAX_UPSTREAM_ITEM_ID_LENGTH = 256
+MAX_INPUT_TRANSCRIPT_LENGTH = 16384
 REALTIME_CONTEXT_TOKENS = 256_000
 REALTIME_TOKEN_BUDGET = 16_384
 MAX_RESPONSE_OUTPUT_TOKENS = 1024
@@ -59,6 +61,7 @@ SERVER_EVENT_FIELDS = {
     "response.audio_transcript.delta": "delta",
     "response.audio_transcript.done": None,
     "conversation.item.input_audio_transcription.completed": "transcript",
+    "conversation.item.input_audio_transcription.delta": "delta",
     "response.created": None,
     "input_audio_buffer.speech_started": None,
     "input_audio_buffer.speech_stopped": None,
@@ -144,6 +147,17 @@ def parse_server_event(data: str) -> Optional[dict[str, str]]:
         ):
             raise RealtimeProtocolError(1011, "Realtime service unavailable")
         event[field] = value
+    if event_type.startswith("conversation.item.input_audio_transcription."):
+        item_id = message.get("item_id")
+        if (
+            not isinstance(item_id, str)
+            or not item_id.strip()
+            or len(item_id) > MAX_UPSTREAM_ITEM_ID_LENGTH
+            or field is None
+            or len(event[field]) > MAX_INPUT_TRANSCRIPT_LENGTH
+        ):
+            raise RealtimeProtocolError(1011, "Realtime service unavailable")
+        event["item_id"] = item_id
     return event
 
 
@@ -259,11 +273,14 @@ async def realtime_relay():
 
         azure_openai_endpoint = current_app.config.get("azure_openai_endpoint")
         realtime_deployment = current_app.config.get(CONFIG_REALTIME_DEPLOYMENT)
+        transcription_deployment = current_app.config.get(CONFIG_REALTIME_TRANSCRIPTION_DEPLOYMENT)
         realtime_voice = current_app.config.get(CONFIG_REALTIME_VOICE, "alloy")
         if (
             not isinstance(azure_openai_endpoint, str)
             or not isinstance(realtime_deployment, str)
             or not realtime_deployment.strip()
+            or not isinstance(transcription_deployment, str)
+            or not transcription_deployment.strip()
             or realtime_voice not in SUPPORTED_VOICES
         ):
             raise RealtimeProtocolError(1011, "Realtime service unavailable")
@@ -305,6 +322,7 @@ async def realtime_relay():
                             "audio": {
                                 "input": {
                                     "format": {"type": "audio/pcm", "rate": 24000},
+                                    "transcription": {"model": transcription_deployment},
                                     "turn_detection": {
                                         "type": "server_vad",
                                         "threshold": 0.5,

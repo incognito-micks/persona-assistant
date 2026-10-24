@@ -8,11 +8,11 @@ The included Alex Morgan profile and projects are fictional. Replace them with c
 
 ## What You Get
 
-- Text chat and realtime voice, enabled by default.
+- Text chat, realtime voice, and recognized input-speech text, enabled by default.
 - One shared, validated profile for branding and both conversation modes.
 - Markdown knowledge supplied directly to the model: no Search index, embeddings, ingestion service, or document ACLs.
 - Browser-local visitor history and owner-authorized settings/operational analytics.
-- An opinionated Container Apps deployment with managed identity, text/realtime model deployments, and Cosmos settings/shared usage storage.
+- An opinionated Container Apps deployment with managed identity, text/realtime/transcription model deployments, and Cosmos settings/shared usage storage.
 - Bounded public usage, explicit failures, and a deployment kill switch.
 
 This project descends from [Azure Search OpenAI Demo](https://github.com/Azure-Samples/azure-search-openai-demo). It is an independent adaptation, not a Microsoft-operated service. Preserve the upstream [MIT license](LICENSE) when redistributing it.
@@ -66,14 +66,16 @@ The frontend is normally at `http://localhost:5173`. Public chat does not requir
 
 Deployment creates billable resources. Review the defaults, permissions, usage limits, and selected region before running cloud commands.
 
+Use Azure Developer CLI (`azd`) 1.37.1 or newer. Older clients can fail the Container Registry remote-build upload with `InvalidCorrelationRequestId`; the manifest enforces the version validated by this template.
+
 ```sh
 azd auth login
 azd up
 ```
 
-The supported path is Container Apps with one text model and one realtime model, not a matrix of hosting/providers/features. Select an environment name and subscription/region, and complete the owner-authentication setup. Resource identifiers and service endpoints are wired by infrastructure.
+The supported path is Container Apps with text, realtime, and input-transcription deployments, not a matrix of hosting/providers/features. Select an environment name and subscription/region, and complete the owner-authentication setup. Resource identifiers and service endpoints are wired by infrastructure.
 
-Preflight checks must succeed for both model capabilities; voice is not silently omitted. Model availability, quota, directory-registration permissions, and role-assignment permissions remain subscription/tenant prerequisites.
+Preflight checks must succeed for all three model capabilities; voice or transcription is not silently omitted. Model availability, quota, directory-registration permissions, and role-assignment permissions remain subscription/tenant prerequisites.
 
 See [architecture](docs/architecture.md) and [production operation](docs/productionizing.md). Changes to infrastructure require `azd provision`; application-only updates use `azd deploy`. These commands contact Azure and are not offline checks.
 
@@ -105,6 +107,7 @@ Browser tests use built assets and mocked services; install the Playwright Chrom
 - Public operational analytics omit raw visitor questions, owner identities, and detailed error messages. Anonymous sessions are not verified unique people.
 - A 30-day analytics report window is not a data-retention policy. Existing records are not automatically deleted or migrated.
 - Browser history remains on the visitor's device. Model providers process submitted text/audio under the deployment's service terms. Do not submit sensitive information.
+- Voice input is transcribed by the configured Azure model and displayed alongside AI replies. Recognition can be inaccurate. Voice transcripts stay in the page's session state, not the template's saved text-chat history; provider-side processing and retention are separate responsibilities.
 - Chat trims complete older turns from the model request to fit its token budget, without truncating saved browser history. Mandatory knowledge/latest-question overflow fails explicitly.
 - Public admission has per-identity and deployment-wide limits. Hosted startup requires shared Cosmos settings/usage storage, and configured store failures do not bypass limits. Local development fallback limits apply only to one process.
 - Set `DISABLE_PUBLIC_ACCESS=true` to stop new public admissions. Existing voice sessions are bounded separately. Billing alerts are not hard spending limits.

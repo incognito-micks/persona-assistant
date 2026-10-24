@@ -178,7 +178,7 @@
         "releaseError": "Nie można zwolnić zasobów audio czatu głosowego. Odśwież stronę, zanim spróbujesz ponownie.",
         "listeningPrompt": "Nasłuchiwanie... zacznij mówić",
         "startPrompt": "Kliknij przycisk poniżej, aby rozpocząć rozmowę głosową",
-        "transcriptNotice": "Tekst odpowiedzi AI jest wyświetlany, gdy jest dostępny. Czat głosowy działa bez transkrypcji Twoich wypowiedzi."
+        "transcriptNotice": "Twoje wypowiedzi są transkrybowane i wyświetlane wraz z tekstem odpowiedzi AI, gdy jest dostępny. Transkrypcje mogą zawierać błędy rozpoznawania mowy."
     },
     "admin": {
         "ownerLink": "Panel właściciela",

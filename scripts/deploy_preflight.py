@@ -69,10 +69,12 @@ def read_json(path: Path) -> Any:
 
 def load_models(root: Path) -> dict[str, ModelSpec]:
     data = read_json(root / "infra/deployment-models.json")
-    if not isinstance(data, dict) or set(data) != {"text", "realtime", "voice"}:
-        raise PreflightError("infra/deployment-models.json must define mandatory text, realtime and voice entries.")
+    if not isinstance(data, dict) or set(data) != {"text", "realtime", "transcription", "voice"}:
+        raise PreflightError(
+            "infra/deployment-models.json must define mandatory text, realtime, transcription and voice entries."
+        )
     models = {}
-    for kind in ("text", "realtime"):
+    for kind in ("text", "realtime", "transcription"):
         value = data[kind]
         if not isinstance(value, dict) or set(value) != {"name", "version", "deployment", "sku", "capacity"}:
             raise PreflightError(f"The {kind} model specification is incomplete.")
@@ -86,8 +88,8 @@ def load_models(root: Path) -> dict[str, ModelSpec]:
         if value["sku"] != "GlobalStandard" or "preview" in value["name"].lower():
             raise PreflightError(f"The {kind} model must use a stable Azure OpenAI model and GlobalStandard SKU.")
         models[kind] = ModelSpec(**value)
-    if models["text"].deployment == models["realtime"].deployment:
-        raise PreflightError("Text and realtime must have distinct deployment names.")
+    if len({model.deployment for model in models.values()}) != len(models):
+        raise PreflightError("Text, realtime and transcription must have distinct deployment names.")
     if not isinstance(data["voice"], str) or not data["voice"].strip():
         raise PreflightError("The realtime voice must be a nonempty string.")
     return models
@@ -232,7 +234,7 @@ def check_providers(subscription: str, location: str, runner: AzureRunner) -> No
             if location not in locations:
                 raise PreflightError(
                     f"{namespace}/{resource_type} is not advertised in {location}. "
-                    "Select a region supporting Container Apps, Cosmos and BOTH models "
+                    "Select a region supporting Container Apps, Cosmos and all required models "
                     "(start with eastus2), set AZURE_LOCATION, and rerun preflight."
                 )
 

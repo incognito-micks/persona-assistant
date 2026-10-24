@@ -28,8 +28,9 @@ param tenantId string = tenant().tenantId
 @description('Advanced application kill switch. Guest chat and voice are public unless this is true.')
 param disablePublicAccess bool = false
 
-@description('Internal azd lifecycle input: preserve the deployed image when reprovisioning.')
-param backendExists bool = false
+@description('Internal azd package state: preserve the published image when reprovisioning.')
+@minLength(1)
+param backendImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
 
 var resourceToken = uniqueString(subscription().id, environmentName, location)
 var tags = {
@@ -54,7 +55,7 @@ module assistant 'resources.bicep' = {
     clientAppId: clientAppId
     adminUserOid: adminUserOid
     disablePublicAccess: disablePublicAccess
-    backendExists: backendExists
+    backendImage: backendImage
   }
 }
 
@@ -70,6 +71,7 @@ output AZURE_OPENAI_ENDPOINT string = assistant.outputs.openAiEndpoint
 output AZURE_OPENAI_CHATGPT_MODEL string = assistant.outputs.textModel
 output AZURE_OPENAI_CHATGPT_DEPLOYMENT string = assistant.outputs.textDeployment
 output AZURE_OPENAI_REALTIME_DEPLOYMENT string = assistant.outputs.realtimeDeployment
+output AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT string = assistant.outputs.transcriptionDeployment
 output AZURE_OPENAI_REALTIME_VOICE string = assistant.outputs.realtimeVoice
 output AZURE_COSMOSDB_ACCOUNT string = assistant.outputs.cosmosAccount
 output AZURE_ADMIN_SETTINGS_DATABASE string = assistant.outputs.settingsDatabase

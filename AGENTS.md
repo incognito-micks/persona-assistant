@@ -33,6 +33,7 @@ Preserve unrelated staged/working changes and respect delegated file ownership. 
 - Preserve prompt budgeting, complete-turn trimming, and explicit mandatory-context errors. Never trim saved browser history.
 - Preserve SSRF destination/redirect validation and response-byte caps.
 - Realtime accepts only allowlisted audio events. Preserve cancellation, session/concurrency/daily admission limits, safe close reasons, and microphone cleanup.
+- Input transcription is a default Azure capability, not browser speech recognition. Forward bounded transcript text with validated `item_id`, correlate it to committed turns, and handle asynchronous ordering without duplicating replies or saving voice transcripts as text-chat history.
 - Shared admission failures must fail explicitly. Local fallback is not replica-global; never describe it as production-wide protection.
 - New analytics must not retain raw questions, owner identities, detailed model errors, or audio. Session metrics are not verified unique people. Reporting windows are not retention/deletion policies.
 - Do not remove existing analytics/settings or migrate personal data without explicit authorization.
@@ -92,3 +93,7 @@ Reuse existing helpers and typing patterns. Do not introduce single-underscore p
 Regenerate dependency locks with package tooling; do not fabricate or hand-edit generated resolution when a registry is unavailable. Keep script-only dependencies separate from runtime inputs.
 
 No cloud provisioning, deployment, remote builds, identity changes, publishing, or commits without explicit authorization. Follow [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and the [pull-request template](.github/PULL_REQUEST_TEMPLATE.md).
+
+Use the manifest's minimum supported azd version for real deployment; the validated remote build requires azd 1.37.1 or newer. A local Bicep compilation cannot prove Container Apps API acceptance: disabling saved environment logs uses a null `appLogsConfiguration`, not the rejected literal destination `"none"`.
+
+Preserve the running image on reprovision through generated `SERVICE_BACKEND_IMAGE_NAME`/`backendImage` input, never an ARM self-reference to the Container App being updated. Model preflight must include text, realtime, and input transcription without adding mandatory user feature switches.

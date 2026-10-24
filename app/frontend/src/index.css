@@ -56,7 +56,7 @@ body {
     }
 }
 
-/* Fluent UI dark mode overrides */
+/* Public dark defaults; light surfaces provide scoped Fluent palette variables. */
 .ms-Panel-main {
     background: #16213e !important;
     color: #f2f2f2 !important;
@@ -67,52 +67,52 @@ body {
 }
 
 .ms-TextField-fieldGroup {
-    background: rgba(255, 255, 255, 0.06) !important;
-    border-color: rgba(255, 255, 255, 0.15) !important;
+    background: var(--fluent-control-background, rgba(255, 255, 255, 0.06)) !important;
+    border-color: var(--fluent-control-border, rgba(255, 255, 255, 0.15)) !important;
 }
 
 .ms-TextField-field {
-    color: #f2f2f2 !important;
+    color: var(--fluent-text, #f2f2f2) !important;
 }
 
 .ms-TextField-field::placeholder {
-    color: #b0b0c8 !important;
+    color: var(--fluent-placeholder-text, #b0b0c8) !important;
 }
 
 .ms-Button--default {
-    background: rgba(255, 255, 255, 0.06) !important;
-    color: #f2f2f2 !important;
-    border-color: rgba(255, 255, 255, 0.15) !important;
+    background: var(--fluent-control-background, rgba(255, 255, 255, 0.06)) !important;
+    color: var(--fluent-text, #f2f2f2) !important;
+    border-color: var(--fluent-control-border, rgba(255, 255, 255, 0.15)) !important;
 }
 
 .ms-Button--default:hover {
-    background: rgba(255, 255, 255, 0.1) !important;
-    color: #f2f2f2 !important;
+    background: var(--fluent-control-hover-background, rgba(255, 255, 255, 0.1)) !important;
+    color: var(--fluent-text, #f2f2f2) !important;
 }
 
 .ms-Label {
-    color: #f2f2f2 !important;
+    color: var(--fluent-text, #f2f2f2) !important;
 }
 
 .ms-Checkbox-text {
-    color: #f2f2f2 !important;
+    color: var(--fluent-text, #f2f2f2) !important;
 }
 
 .ms-SpinButton-input {
-    color: #f2f2f2 !important;
-    background: rgba(255, 255, 255, 0.06) !important;
+    color: var(--fluent-text, #f2f2f2) !important;
+    background: var(--fluent-control-background, rgba(255, 255, 255, 0.06)) !important;
 }
 
 .ms-Dropdown-title {
-    color: #f2f2f2 !important;
-    background: rgba(255, 255, 255, 0.06) !important;
-    border-color: rgba(255, 255, 255, 0.15) !important;
+    color: var(--fluent-text, #f2f2f2) !important;
+    background: var(--fluent-control-background, rgba(255, 255, 255, 0.06)) !important;
+    border-color: var(--fluent-control-border, rgba(255, 255, 255, 0.15)) !important;
 }
 
 .ms-Pivot-link {
-    color: #b0b0c8 !important;
+    color: var(--fluent-pivot-text, #b0b0c8) !important;
 }
 
 .ms-Pivot-link.is-selected {
-    color: #6c63ff !important;
+    color: var(--fluent-pivot-selected-text, #6c63ff) !important;
 }

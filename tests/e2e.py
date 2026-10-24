@@ -16,7 +16,7 @@ import pytest
 import requests
 import uvicorn
 from axe_playwright_python.sync_playwright import Axe
-from playwright.sync_api import Page, Route, expect
+from playwright.sync_api import Locator, Page, Route, expect
 
 import app
 
@@ -230,6 +230,36 @@ def capture_screenshot(page: Page, name: str) -> None:
     directory = PROJECT_ROOT / ".pytest_cache" / "test-results"
     directory.mkdir(parents=True, exist_ok=True)
     page.screenshot(path=str(directory / f"{name}.png"), full_page=True, animations="disabled")
+
+
+def assert_text_contrast(locator: Locator) -> None:
+    expect(locator).to_be_visible()
+    locator.scroll_into_view_if_needed()
+    measured = locator.evaluate("""element => {
+        const rgba = color => color.match(/[\\d.]+/g).map(Number);
+        const blend = (foreground, background) => {
+            const alpha = foreground[3] ?? 1;
+            return foreground.slice(0, 3).map((channel, index) =>
+                channel * alpha + background[index] * (1 - alpha));
+        };
+        const ancestors = [];
+        for (let node = element; node; node = node.parentElement) ancestors.unshift(node);
+        const background = ancestors.reduce((color, node) =>
+            blend(rgba(getComputedStyle(node).backgroundColor), color), [255, 255, 255]);
+        const foreground = blend(rgba(getComputedStyle(element).color), background);
+        const luminance = color => color.map(channel => {
+            const srgb = channel / 255;
+            return srgb <= 0.04045 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4;
+        }).reduce((sum, channel, index) => sum + channel * [0.2126, 0.7152, 0.0722][index], 0);
+        const values = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
+        return {
+            text: element.value || element.textContent.trim(),
+            foreground,
+            background,
+            ratio: (values[0] + 0.05) / (values[1] + 0.05)
+        };
+    }""")
+    assert measured["ratio"] >= 4.5, f"Text contrast is below WCAG AA: {measured}"
 
 
 def chat_response(content: str = ANSWER, session_state="browser-session", context=None):
@@ -514,6 +544,79 @@ def test_admin_non_owner_denial_does_not_affect_public_chat(page: Page, live_ser
     send_question(page)
     expect_app_text(page, ANSWER)
     assert public_calls[0]["authorization"] is None
+
+
+def test_admin_owner_controls_have_readable_light_theme_contrast(
+    page: Page, live_server_url: str, public_profile, owner_auth
+):
+    settings = {**public_profile, "manager_email": "private-manager@example.test", "fun_facts": []}
+    page.route(
+        "**/api/admin/settings",
+        lambda route: (
+            route.fulfill(status=400, json={"error": "Invalid settings"})
+            if route.request.method == "PUT"
+            else route.fulfill(json=settings)
+        ),
+    )
+    page.route(
+        "**/api/admin/analytics",
+        lambda route: route.fulfill(
+            json={
+                "total_queries": 4,
+                "avg_response_time_ms": 25,
+                "queries_by_day": [],
+                "confidence_distribution": {"high": 1, "medium": 1, "low": 1, "unknown": 1},
+                "recent_queries": [
+                    {
+                        "confidence_level": level,
+                        "response_time_ms": 25,
+                        "timestamp": 1_800_000_000_000,
+                        "error": level == "low",
+                    }
+                    for level in ("high", "medium", "low", "unknown")
+                ],
+                "unique_users": 2,
+                "example_question_rate": 25,
+                "avg_session_depth": 2,
+                "error_count": 1,
+            }
+        ),
+    )
+    page.goto(f"{live_server_url}#/admin")
+    page.get_by_role("button", name="Sign in as owner", exact=True).click()
+    expect(page.get_by_label("Owner Name", exact=True)).to_have_value(public_profile["owner_name"])
+    admin = page.locator('[class*="adminContainer"]')
+    assert_text_contrast(page.get_by_text("Owner Name", exact=True))
+    assert_text_contrast(page.get_by_label("Owner Name", exact=True))
+    for element in admin.locator("label, input, textarea, .ms-Pivot-text").all():
+        assert_text_contrast(element)
+    for name in ("Sign out of admin", "Add Fun Fact"):
+        assert_text_contrast(page.get_by_role("button", name=name, exact=True).locator(".ms-Button-label"))
+    assert_text_contrast(page.get_by_text("Vacation Mode", exact=True))
+    page.get_by_role("switch", name="Vacation Mode", exact=True).click()
+    assert_text_contrast(page.get_by_text("Vacation Mode", exact=True))
+    page.get_by_label("Assistant Name", exact=True).fill("A readable assistant name")
+    assert_text_contrast(page.get_by_role("button", name="Save Settings", exact=True).locator(".ms-Button-label"))
+    page.get_by_role("button", name="Save Settings", exact=True).click()
+    save_error = page.get_by_text("Unable to save settings. Check the values and try again.", exact=True)
+    expect(save_error).to_be_visible()
+    assert_text_contrast(save_error)
+
+    page.get_by_role("tab", name="Analytics", exact=True).click()
+    page.get_by_role("button", name="Load Analytics", exact=True).click()
+    expect(page.get_by_text("Sessions", exact=True)).to_be_visible()
+    for element in admin.locator(
+        '.ms-Pivot-text, [class*="analyticsTab"] h3, [class*="analyticsTab"] h4, '
+        '[class*="analyticsTab"] p, [class*="analyticsTab"] .ms-Button-label, '
+        '[class*="statValue"], [class*="statLabel"], [class*="legendItem"], '
+        '[class*="queryText"], [class*="queryMeta"] > span'
+    ).all():
+        assert_text_contrast(element)
+
+    page.get_by_role("banner").get_by_role("link", name="Alex's AI assistant", exact=True).click()
+    expect(page.get_by_role("textbox", name="Your message", exact=True)).to_be_visible()
+    assert page.locator("html").evaluate("element => getComputedStyle(element).backgroundColor") == "rgb(26, 26, 46)"
+    assert page.locator("html").evaluate("element => getComputedStyle(element).color") == "rgb(242, 242, 242)"
 
 
 def test_admin_saves_only_changed_fields_and_refreshes_profile(
@@ -1065,7 +1168,8 @@ def test_anonymous_voice_entry_waits_for_explicit_action(
     expect(page.get_by_text(re.compile("You are speaking with an AI, not the owner"))).to_be_visible()
     expect(
         page.get_by_text(
-            "AI reply text is shown when available. Voice chat works without transcribing your spoken words.",
+            "Your speech is transcribed and shown alongside AI reply text when available. "
+            "Transcriptions may contain recognition mistakes.",
             exact=True,
         )
     ).to_be_visible()
@@ -1093,9 +1197,7 @@ def test_anonymous_voice_entry_waits_for_explicit_action(
     )
 
 
-def test_realtime_voice_markers_dedupe_per_session_without_input_transcription(
-    page: Page, live_server_url: str, realtime_voice
-):
+def test_realtime_voice_markers_dedupe_and_fallback_reset_per_session(page: Page, live_server_url: str, realtime_voice):
     page.goto(f"{live_server_url}#/voice")
     start_voice_connection(page)
     expect(page.get_by_text("Listening", exact=True)).to_be_visible()
@@ -1107,6 +1209,8 @@ def test_realtime_voice_markers_dedupe_per_session_without_input_transcription(
         socket.message({type: 'input_audio_buffer.speech_stopped'});
         for (const item_id of [undefined, null, '', '   ', 42, 'x'.repeat(257)]) {
             socket.message({type: 'input_audio_buffer.committed', item_id});
+            socket.message({type: 'conversation.item.input_audio_transcription.delta', item_id, delta: 'Invalid uncorrelated partial'});
+            socket.message({type: 'conversation.item.input_audio_transcription.completed', item_id, transcript: 'Invalid uncorrelated transcript'});
         }
     }""")
     expect(page.get_by_text("Voice message", exact=True)).to_have_count(1)
@@ -1117,10 +1221,9 @@ def test_realtime_voice_markers_dedupe_per_session_without_input_transcription(
         socket.message({type: 'response.audio.delta', delta: 'AAA='});
         socket.message({type: 'response.audio_transcript.delta', delta: 'The assistant still replies with audio and text.'});
         socket.message({type: 'response.audio.done'});
-        socket.message({type: 'conversation.item.input_audio_transcription.completed', transcript: 'Do not display or invent my spoken words.'});
     }""")
     expect(page.get_by_text("The assistant still replies with audio and text.", exact=True)).to_be_visible()
-    expect(page.get_by_text("Do not display or invent my spoken words.", exact=True)).to_have_count(0)
+    expect(page.get_by_text(re.compile("Invalid uncorrelated"))).to_have_count(0)
     expect(page.get_by_text("Listening", exact=True)).to_be_visible()
     assert page.evaluate("window.voiceMocks.contexts.length") == 2
 
@@ -1151,8 +1254,12 @@ def test_realtime_voice_markers_dedupe_per_session_without_input_transcription(
     page.evaluate("""() => {
         window.voiceMocks.sockets[0].message({type: 'input_audio_buffer.committed', item_id: 'stale-item'});
         window.voiceMocks.sockets[0].message({type: 'input_audio_buffer.speech_stopped'});
+        window.voiceMocks.sockets[0].message({
+            type: 'conversation.item.input_audio_transcription.completed', item_id: 'voice-item-1', transcript: 'Stale words'
+        });
     }""")
     expect(page.get_by_text("Voice message", exact=True)).to_have_count(0)
+    expect(page.get_by_text("Stale words", exact=True)).to_have_count(0)
     expect(page.get_by_text("Preparing AI reply...", exact=True)).to_have_count(0)
     page.evaluate("""() => {
         const socket = window.voiceMocks.sockets[1];
@@ -1164,6 +1271,180 @@ def test_realtime_voice_markers_dedupe_per_session_without_input_transcription(
     expect(page.get_by_text("Voice message", exact=True)).to_have_count(1)
     expect(page.get_by_text("A fresh session also has an assistant reply.", exact=True)).to_be_visible()
     expect(page.get_by_text("The assistant still replies with audio and text.", exact=True)).to_have_count(0)
+    page.get_by_role("button", name="Stop Voice Chat", exact=True).click()
+    expect_voice_audio_released(page)
+
+
+def test_realtime_voice_updates_correlated_partial_and_final_transcripts(
+    page: Page, live_server_url: str, realtime_voice, browser_requests
+):
+    page.goto(f"{live_server_url}#/voice")
+    start_voice_connection(page)
+    expect(page.get_by_text("Listening", exact=True)).to_be_visible()
+    page.evaluate("""() => {
+        const socket = window.voiceMocks.sockets[0];
+        socket.message({type: 'input_audio_buffer.committed', item_id: 'spoken-turn'});
+        socket.message({type: 'input_audio_buffer.committed', item_id: 'spoken-turn'});
+    }""")
+    user_bubbles = page.locator('[class*="userBubble"]')
+    expect(user_bubbles).to_have_text(["Voice message"])
+    page.evaluate("""() => {
+        const socket = window.voiceMocks.sockets[0];
+        socket.message({type: 'conversation.item.input_audio_transcription.delta', item_id: 'spoken-turn', delta: 'Tell me about'});
+    }""")
+    expect(user_bubbles).to_have_text(["Tell me about"])
+    page.evaluate("""() => {
+        const socket = window.voiceMocks.sockets[0];
+        socket.message({type: 'conversation.item.input_audio_transcription.delta', item_id: 'spoken-turn', delta: ' your latest project.'});
+        socket.message({type: 'conversation.item.input_audio_transcription.delta', item_id: 'spoken-turn', delta: 42});
+        socket.message({type: 'conversation.item.input_audio_transcription.completed', item_id: 'spoken-turn', transcript: null});
+        socket.message({type: 'response.created'});
+        socket.message({type: 'response.audio_transcript.delta', delta: 'My latest project is a reliable assistant.'});
+    }""")
+    expect(user_bubbles).to_have_text(["Tell me about your latest project."])
+    expect(page.locator('[class*="assistantBubble"]')).to_have_text(["My latest project is a reliable assistant."])
+    page.evaluate("""() => {
+        const socket = window.voiceMocks.sockets[0];
+        socket.message({type: 'conversation.item.input_audio_transcription.completed', item_id: 'spoken-turn', transcript: 'Tell me about your recent project.'});
+        socket.message({type: 'conversation.item.input_audio_transcription.completed', item_id: 'spoken-turn', transcript: 'Tell me about your recent project.'});
+        socket.message({type: 'conversation.item.input_audio_transcription.completed', item_id: 'spoken-turn', transcript: 'Duplicate final must not replace real words.'});
+        socket.message({type: 'conversation.item.input_audio_transcription.delta', item_id: 'spoken-turn', delta: 'Obsolete partial'});
+        socket.message({type: 'input_audio_buffer.committed', item_id: 'spoken-turn'});
+        window.voiceMocks.worklets[0].port.onmessage({data: 'AAA='});
+    }""")
+    expect(user_bubbles).to_have_text(["Tell me about your recent project."])
+    expect(page.locator('[class*="assistantBubble"]')).to_have_text(["My latest project is a reliable assistant."])
+    expect(page.get_by_text("Preparing AI reply...", exact=True)).to_have_count(0)
+    assert page.locator('[class*="transcriptArea"] > div').all_text_contents()[:2] == [
+        "Tell me about your recent project.",
+        "My latest project is a reliable assistant.",
+    ]
+    assert page.evaluate("window.voiceMocks.sockets[0].sent") == [
+        {"type": "input_audio_buffer.append", "audio": "AAA="}
+    ]
+    assert not any(request["path"].startswith("/chat_history") for request in browser_requests)
+    page.get_by_role("button", name="Stop Voice Chat", exact=True).click()
+    expect_voice_audio_released(page)
+    expect(user_bubbles).to_have_text(["Tell me about your recent project."])
+    page.reload()
+    expect(page.get_by_role("button", name="Start Voice Chat", exact=True)).to_be_enabled()
+    expect(user_bubbles).to_have_count(0)
+    expect(page.locator('[class*="assistantBubble"]')).to_have_count(0)
+
+
+def test_realtime_voice_buffers_transcription_before_commit_and_saves_assistant_once(
+    page: Page, live_server_url: str, realtime_voice
+):
+    page.goto(f"{live_server_url}#/voice")
+    start_voice_connection(page)
+    expect(page.get_by_text("Listening", exact=True)).to_be_visible()
+    page.evaluate("""() => {
+        const socket = window.voiceMocks.sockets[0];
+        socket.message({type: 'conversation.item.input_audio_transcription.delta', item_id: 'early-turn', delta: 'Early partial'});
+        socket.message({type: 'conversation.item.input_audio_transcription.completed', item_id: 'early-turn', transcript: 'A transcript that arrived before commit.'});
+    }""")
+    expect(page.locator('[class*="userBubble"]')).to_have_count(0)
+    page.evaluate("""() => {
+        const socket = window.voiceMocks.sockets[0];
+        socket.message({type: 'input_audio_buffer.committed', item_id: 'early-turn'});
+        socket.message({type: 'response.created'});
+        socket.message({type: 'response.audio_transcript.delta', delta: 'The first assistant reply.'});
+    }""")
+    expect(page.locator('[class*="userBubble"]')).to_have_text(["A transcript that arrived before commit."])
+    expect(page.get_by_text("The first assistant reply.", exact=True)).to_have_count(1)
+    page.evaluate("""() => {
+        const socket = window.voiceMocks.sockets[0];
+        socket.message({type: 'response.created'});
+        socket.message({type: 'conversation.item.input_audio_transcription.completed', item_id: 'second-early-turn', transcript: 'The next early transcript.'});
+        socket.message({type: 'input_audio_buffer.committed', item_id: 'second-early-turn'});
+        socket.message({type: 'input_audio_buffer.committed', item_id: 'second-early-turn'});
+        socket.message({type: 'response.created'});
+        socket.message({type: 'response.audio_transcript.delta', delta: 'The second assistant reply.'});
+    }""")
+    expect(page.locator('[class*="assistantBubble"]')).to_have_text(
+        ["The first assistant reply.", "The second assistant reply."]
+    )
+    assert page.locator('[class*="transcriptArea"] > div').all_text_contents()[:4] == [
+        "A transcript that arrived before commit.",
+        "The first assistant reply.",
+        "The next early transcript.",
+        "The second assistant reply.",
+    ]
+    page.get_by_role("button", name="Stop Voice Chat", exact=True).click()
+    expect_voice_audio_released(page)
+
+
+def test_realtime_voice_correlates_two_out_of_order_transcripts_after_assistant_starts(
+    page: Page, live_server_url: str, realtime_voice
+):
+    page.goto(f"{live_server_url}#/voice")
+    start_voice_connection(page)
+    expect(page.get_by_text("Listening", exact=True)).to_be_visible()
+    page.evaluate("""() => {
+        const socket = window.voiceMocks.sockets[0];
+        socket.message({type: 'input_audio_buffer.committed', item_id: 'first-turn'});
+        socket.message({type: 'response.created'});
+        socket.message({type: 'response.audio_transcript.delta', delta: 'First assistant reply.'});
+        socket.message({type: 'conversation.item.input_audio_transcription.delta', item_id: 'first-turn', delta: 'First'});
+        socket.message({type: 'input_audio_buffer.committed', item_id: 'x'.repeat(256)});
+        socket.message({type: 'response.created'});
+        socket.message({type: 'response.audio_transcript.delta', delta: 'Second assistant reply.'});
+        socket.message({type: 'conversation.item.input_audio_transcription.delta', item_id: 'x'.repeat(256), delta: 'Second partial'});
+        socket.message({type: 'conversation.item.input_audio_transcription.completed', item_id: 'x'.repeat(256), transcript: 'Second spoken question.'});
+        socket.message({type: 'conversation.item.input_audio_transcription.delta', item_id: 'first-turn', delta: ' question partial'});
+    }""")
+    expect(page.locator('[class*="userBubble"]')).to_have_text(["First question partial", "Second spoken question."])
+    page.evaluate("""() => {
+        const socket = window.voiceMocks.sockets[0];
+        socket.message({type: 'conversation.item.input_audio_transcription.completed', item_id: 'first-turn', transcript: 'First spoken question.'});
+        socket.message({type: 'input_audio_buffer.committed', item_id: 'first-turn'});
+        socket.message({type: 'input_audio_buffer.committed', item_id: 'x'.repeat(256)});
+        socket.message({type: 'conversation.item.input_audio_transcription.completed', item_id: 'first-turn', transcript: 'First spoken question.'});
+        socket.message({type: 'conversation.item.input_audio_transcription.completed', item_id: 'x'.repeat(256), transcript: 'Second spoken question.'});
+    }""")
+    expect(page.locator('[class*="userBubble"]')).to_have_text(["First spoken question.", "Second spoken question."])
+    expect(page.locator('[class*="assistantBubble"]')).to_have_text(
+        ["First assistant reply.", "Second assistant reply."]
+    )
+    assert page.locator('[class*="transcriptArea"] > div').all_text_contents()[:4] == [
+        "First spoken question.",
+        "First assistant reply.",
+        "Second spoken question.",
+        "Second assistant reply.",
+    ]
+    page.get_by_role("button", name="Stop Voice Chat", exact=True).click()
+    expect_voice_audio_released(page)
+
+
+@pytest.mark.parametrize("outcome", ["empty", "failed"])
+def test_realtime_voice_empty_or_failed_transcription_keeps_generic_fallback(
+    page: Page, live_server_url: str, realtime_voice, outcome: str
+):
+    page.goto(f"{live_server_url}#/voice")
+    start_voice_connection(page)
+    expect(page.get_by_text("Listening", exact=True)).to_be_visible()
+    page.evaluate("""() => {
+        const socket = window.voiceMocks.sockets[0];
+        socket.message({type: 'input_audio_buffer.committed', item_id: 'fallback-turn'});
+        socket.message({type: 'conversation.item.input_audio_transcription.delta', item_id: 'fallback-turn', delta: 'An unfinished partial'});
+    }""")
+    expect(page.locator('[class*="userBubble"]')).to_have_text(["An unfinished partial"])
+    page.evaluate(
+        """outcome => {
+            const socket = window.voiceMocks.sockets[0];
+            socket.message({
+                type: `conversation.item.input_audio_transcription.${outcome === 'empty' ? 'completed' : 'failed'}`,
+                item_id: 'fallback-turn', transcript: '   ', error: {message: 'Private transcription diagnostic'}
+            });
+            socket.message({type: 'conversation.item.input_audio_transcription.delta', item_id: 'fallback-turn', delta: 'Obsolete partial'});
+            socket.message({type: 'response.created'});
+            socket.message({type: 'response.audio_transcript.delta', delta: 'An assistant reply without an input transcript.'});
+        }""",
+        outcome,
+    )
+    expect(page.locator('[class*="userBubble"]')).to_have_text(["Voice message"])
+    expect(page.locator('[class*="assistantBubble"]')).to_have_text(["An assistant reply without an input transcript."])
+    expect(page.get_by_text(re.compile("unfinished|Obsolete|Private transcription"))).to_have_count(0)
     page.get_by_role("button", name="Stop Voice Chat", exact=True).click()
     expect_voice_audio_released(page)
 
@@ -1285,7 +1566,9 @@ def test_realtime_voice_ignores_stale_socket_callbacks_and_rapid_toggles(
         old.open();
         old.fail();
         old.message({type: 'response.audio_transcript.delta', delta: 'Stale transcript'});
-        old.message({type: 'conversation.item.input_audio_transcription.completed', transcript: 'Stale user'});
+        old.message({type: 'input_audio_buffer.committed', item_id: 'stale-turn'});
+        old.message({type: 'conversation.item.input_audio_transcription.delta', item_id: 'stale-turn', delta: 'Stale partial'});
+        old.message({type: 'conversation.item.input_audio_transcription.completed', item_id: 'stale-turn', transcript: 'Stale user'});
         old.message({type: 'response.audio.delta', delta: 'AAA='});
         old.finishClose(1011, 'Stale failure');
     }""")

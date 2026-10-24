@@ -175,6 +175,7 @@ def test_nested_only_knowledge_fails(local_project):
     "change",
     [
         lambda data: data.pop("realtime"),
+        lambda data: data.pop("transcription"),
         lambda data: data["realtime"].pop("version"),
         lambda data: data["realtime"].update(version=" "),
         lambda data: data["realtime"].update(capacity=0),
@@ -182,6 +183,7 @@ def test_nested_only_knowledge_fails(local_project):
         lambda data: data["realtime"].update(name="gpt-4o-realtime-preview"),
         lambda data: data["realtime"].update(sku="Standard"),
         lambda data: data["realtime"].update(deployment=data["text"]["deployment"]),
+        lambda data: data["transcription"].update(deployment=data["realtime"]["deployment"]),
         lambda data: data.update(voice=""),
     ],
 )
@@ -201,6 +203,20 @@ def test_cloud_success_uses_only_read_operations(deployment_env, azure):
     assert all(
         command[:2] in (["account", "show"], ["provider", "show"], ["rest", "--method"]) for command in azure.commands
     )
+
+
+def test_missing_transcription_deployment_model_fails_before_provision(deployment_env, azure):
+    azure.models = [model for model in azure.models if model["model"]["name"] != MODELS["transcription"].name]
+    with pytest.raises(preflight.PreflightError, match="Mandatory transcription model"):
+        preflight.validate_cloud(MODELS, deployment_env, azure)
+
+
+def test_transcription_quota_is_required_even_when_voice_quota_is_available(deployment_env, azure):
+    for usage in azure.usages:
+        if usage["name"]["value"] == f"OpenAI.GlobalStandard.{MODELS['transcription'].name}":
+            usage["limit"] = 0
+    with pytest.raises(preflight.PreflightError, match="Insufficient quota.*gpt-4o-mini-transcribe"):
+        preflight.validate_cloud(MODELS, deployment_env, azure)
 
 
 @pytest.mark.parametrize(
@@ -405,7 +421,7 @@ def test_shared_quota_usage_names_are_summed(azure):
     for model in azure.models:
         model["model"]["skus"][0]["usageName"] = "shared"
     azure.usages = [{"name": {"value": "shared"}, "limit": 10, "currentValue": 0}]
-    with pytest.raises(preflight.PreflightError, match="11 additional capacity required"):
+    with pytest.raises(preflight.PreflightError, match="12 additional capacity required"):
         preflight.check_models(MODELS, azure.models, azure.usages, "eastus2")
 
 

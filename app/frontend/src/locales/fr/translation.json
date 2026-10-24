@@ -176,7 +176,7 @@
         "releaseError": "Impossible de libérer les ressources audio du chat vocal. Rechargez la page avant de réessayer.",
         "listeningPrompt": "À l’écoute... commencez à parler",
         "startPrompt": "Cliquez sur le bouton ci-dessous pour démarrer une conversation vocale",
-        "transcriptNotice": "Le texte des réponses de l’IA est affiché lorsqu’il est disponible. Le chat vocal fonctionne sans transcrire vos paroles."
+        "transcriptNotice": "Vos paroles sont transcrites et affichées avec le texte des réponses de l’IA lorsqu’il est disponible. Les transcriptions peuvent contenir des erreurs de reconnaissance."
     },
     "admin": {
         "ownerLink": "Administration du propriétaire",

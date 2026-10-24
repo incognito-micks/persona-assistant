@@ -176,7 +176,7 @@
         "releaseError": "No se han podido liberar los recursos de audio del chat de voz. Recarga la página antes de volver a intentarlo.",
         "listeningPrompt": "Escuchando... empieza a hablar",
         "startPrompt": "Haz clic en el botón de abajo para iniciar una conversación de voz",
-        "transcriptNotice": "El texto de las respuestas de la IA se muestra cuando está disponible. El chat de voz funciona sin transcribir tus palabras."
+        "transcriptNotice": "Tu voz se transcribe y se muestra junto al texto de las respuestas de la IA cuando está disponible. Las transcripciones pueden contener errores de reconocimiento."
     },
     "admin": {
         "ownerLink": "Administración del propietario",

@@ -20,8 +20,8 @@
     "disablePublicAccess": {
       "value": "${DISABLE_PUBLIC_ACCESS=false}"
     },
-    "backendExists": {
-      "value": "${SERVICE_BACKEND_RESOURCE_EXISTS=false}"
+    "backendImage": {
+      "value": "${SERVICE_BACKEND_IMAGE_NAME=mcr.microsoft.com/azuredocs/containerapps-helloworld:latest}"
     }
   }
 }

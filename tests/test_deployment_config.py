@@ -70,10 +70,18 @@ def test_python_ci_bootstraps_public_modules_before_offline_infrastructure_tests
     assert names.index(restore["name"]) < names.index("Run Python tests")
 
 
+def test_owner_redirect_hook_is_inline_and_safe_for_workspace_paths_with_spaces():
+    hooks = yaml.safe_load(AZURE_YAML)["hooks"]["postprovision"]
+    assert hooks["posix"]["run"] == "sh ./scripts/auth_update.sh"
+    assert "& ./scripts/auth_update.ps1" in hooks["windows"]["run"]
+    assert hooks["posix"]["continueOnError"] is False
+    assert hooks["windows"]["continueOnError"] is False
+
+
 def test_only_location_environment_and_owner_setup_are_required(compiled_main):
     required = {name for name, value in compiled_main["parameters"].items() if "defaultValue" not in value}
     assert required == {"environmentName", "location", "clientAppId", "adminUserOid"}
-    assert set(PARAMETERS) == required | {"tenantId", "disablePublicAccess", "backendExists"}
+    assert set(PARAMETERS) == required | {"tenantId", "disablePublicAccess", "backendImage"}
     assert PARAMETERS == {
         "environmentName": {"value": "${AZURE_ENV_NAME}"},
         "location": {"value": "${AZURE_LOCATION}"},
@@ -81,10 +89,14 @@ def test_only_location_environment_and_owner_setup_are_required(compiled_main):
         "clientAppId": {"value": "${AZURE_CLIENT_APP_ID}"},
         "adminUserOid": {"value": "${ADMIN_USER_OID}"},
         "disablePublicAccess": {"value": "${DISABLE_PUBLIC_ACCESS=false}"},
-        "backendExists": {"value": "${SERVICE_BACKEND_RESOURCE_EXISTS=false}"},
+        "backendImage": {
+            "value": "${SERVICE_BACKEND_IMAGE_NAME=mcr.microsoft.com/azuredocs/containerapps-helloworld:latest}"
+        },
     }
     assert compiled_main["parameters"]["disablePublicAccess"]["defaultValue"] is False
-    assert compiled_main["parameters"]["backendExists"]["defaultValue"] is False
+    assert compiled_main["parameters"]["backendImage"]["defaultValue"] == (
+        "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+    )
 
 
 def test_generated_resource_outputs_are_not_deployment_choices(compiled_main):
@@ -94,6 +106,7 @@ def test_generated_resource_outputs_are_not_deployment_choices(compiled_main):
         "AZURE_OPENAI_SERVICE",
         "AZURE_OPENAI_CHATGPT_DEPLOYMENT",
         "AZURE_OPENAI_REALTIME_DEPLOYMENT",
+        "AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT",
         "AZURE_COSMOSDB_ACCOUNT",
         "AZURE_ADMIN_SETTINGS_DATABASE",
         "AZURE_ADMIN_SETTINGS_CONTAINER",
@@ -122,18 +135,25 @@ def test_exact_stable_model_pins_are_shared_with_preflight():
             "sku": "GlobalStandard",
             "capacity": 1,
         },
+        "transcription": {
+            "name": "gpt-4o-mini-transcribe",
+            "version": "2025-12-15",
+            "deployment": "transcription",
+            "sku": "GlobalStandard",
+            "capacity": 1,
+        },
         "voice": "alloy",
     }
     assert "loadJsonContent('deployment-models.json')" in RESOURCES
     assert "AZURE_OPENAI_REALTIME_MODEL" not in json.dumps(PARAMETERS)
 
 
-def test_text_and_realtime_deployments_are_unconditional(compiled_resources):
+def test_text_voice_and_transcription_deployments_are_unconditional(compiled_resources):
     openai = module(compiled_resources, "openai")
     assert "condition" not in openai
     deployments = openai["properties"]["parameters"]["deployments"]["value"]
-    assert len(deployments) == 2
-    for name, deployment in zip(("text", "realtime"), deployments):
+    assert len(deployments) == 3
+    for name, deployment in zip(("text", "realtime", "transcription"), deployments):
         assert deployment["name"] == f"[variables('{name}').deployment]"
         assert deployment["model"] == {
             "format": "OpenAI",
@@ -164,6 +184,7 @@ def test_text_and_realtime_deployments_are_unconditional(compiled_resources):
         ("AZURE_OPENAI_CHATGPT_MODEL", "text.name"),
         ("AZURE_OPENAI_CHATGPT_DEPLOYMENT", "text.deployment"),
         ("AZURE_OPENAI_REALTIME_DEPLOYMENT", "realtime.deployment"),
+        ("AZURE_OPENAI_TRANSCRIPTION_DEPLOYMENT", "transcription.deployment"),
         ("AZURE_OPENAI_REALTIME_VOICE", "models.voice"),
         ("AZURE_COSMOSDB_ACCOUNT", "cosmosDb.outputs.name"),
         ("AZURE_ADMIN_SETTINGS_DATABASE", "databaseName"),
@@ -184,16 +205,20 @@ def test_one_consumption_host_serves_the_same_origin(compiled_resources):
     assert environment["properties"]["workloadProfiles"] == [
         {"name": "Consumption", "workloadProfileType": "Consumption"}
     ]
+    assert environment["properties"]["appLogsConfiguration"] is None
     ingress = backend["properties"]["configuration"]["ingress"]
     assert ingress == {"external": True, "allowInsecure": False, "targetPort": 8000, "transport": "auto"}
     assert "corsPolicy" not in ingress
     assert backend["properties"]["template"]["scale"]["minReplicas"] == 0
     assert backend["properties"]["template"]["scale"]["maxReplicas"] == 3
-    assert "backendExists" in backend["properties"]["template"]["containers"][0]["image"]
+    assert backend["properties"]["template"]["containers"][0]["image"] == "[parameters('backendImage')]"
+    assert "existingBackend" not in RESOURCES
     assert "host: containerapp" in AZURE_YAML
     assert "name: persona-assistant" in AZURE_YAML
     assert "project: ./app/backend" in AZURE_YAML
     assert "context: ." in AZURE_YAML
+    manifest = yaml.safe_load(AZURE_YAML)
+    assert manifest["requiredVersions"]["azd"] == ">= 1.37.1"
 
 
 def test_cosmos_settings_and_analytics_are_unconditional_and_serverless(compiled_resources):

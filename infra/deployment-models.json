@@ -13,5 +13,12 @@
     "sku": "GlobalStandard",
     "capacity": 1
   },
+  "transcription": {
+    "name": "gpt-4o-mini-transcribe",
+    "version": "2025-12-15",
+    "deployment": "transcription",
+    "sku": "GlobalStandard",
+    "capacity": 1
+  },
   "voice": "alloy"
 }

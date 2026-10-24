@@ -176,7 +176,7 @@
         "releaseError": "Impossibile rilasciare le risorse audio della chat vocale. Ricarica la pagina prima di riprovare.",
         "listeningPrompt": "In ascolto... inizia a parlare",
         "startPrompt": "Fai clic sul pulsante qui sotto per avviare una conversazione vocale",
-        "transcriptNotice": "Il testo delle risposte dell’IA viene mostrato quando è disponibile. La chat vocale funziona senza trascrivere ciò che dici."
+        "transcriptNotice": "Le tue parole vengono trascritte e mostrate insieme al testo delle risposte dell’IA, quando disponibile. Le trascrizioni possono contenere errori di riconoscimento."
     },
     "admin": {
         "ownerLink": "Amministrazione del proprietario",

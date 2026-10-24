@@ -176,7 +176,7 @@
         "releaseError": "Não foi possível liberar os recursos de áudio da conversa por voz. Recarregue a página antes de tentar novamente.",
         "listeningPrompt": "Ouvindo... comece a falar",
         "startPrompt": "Clique no botão abaixo para iniciar uma conversa por voz",
-        "transcriptNotice": "O texto das respostas da IA é exibido quando está disponível. A conversa por voz funciona sem transcrever suas palavras."
+        "transcriptNotice": "Sua fala é transcrita e exibida junto ao texto das respostas da IA, quando disponível. As transcrições podem conter erros de reconhecimento."
     },
     "admin": {
         "ownerLink": "Administração do proprietário",

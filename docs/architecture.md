@@ -4,7 +4,7 @@
 
 Persona Assistant is a single-owner portfolio with anonymous text chat and realtime voice. It is not a multi-tenant service, generic agent framework, or document-permission system.
 
-React and Quart are served from one Container Apps deployment. Azure OpenAI supplies separate text and realtime model deployments. Managed identity provides hosted service access. Cosmos stores owner settings and shared operational admission state independently of visitor login/history.
+React and Quart are served from one Container Apps deployment. Azure OpenAI supplies separate text, realtime, and input-speech transcription deployments. Managed identity provides hosted service access. Cosmos stores owner settings and shared operational admission state independently of visitor login/history.
 
 The small container uses one asynchronous worker rather than multiplying the host's reported CPU count. Scale replicas deliberately; admission state remains shared. Process drain allows bounded voice sessions to finish where the hosting platform's own termination policy permits.
 
@@ -15,6 +15,8 @@ Visitors do not need accounts. Browser history is local. Owner-only administrati
 [profile.json](../profile.json) is validated at startup and packaging. It supplies identity, tone, branding, links, and examples. Neutral built-in defaults are overridden by the profile file and then persisted owner fields. Existing persisted fields are not silently overwritten when changing the profile file.
 
 The complete markdown knowledge set is loaded at startup and is available to both conversation modes. Text and voice share the same persona rules. The assistant identifies itself as AI and does not invent facts or commit the owner to actions.
+
+The realtime service produces input transcription events identified by `item_id`. The relay forwards only bounded text and its correlation ID; the browser updates the matching spoken turn even when recognition finishes after an AI reply begins. Partial text is not fabricated, and a pending/generic marker remains if no usable recognition arrives. Voice conversation state is not persisted to browser text-chat history or Cosmos.
 
 There are no embeddings, search calls, or document-level ACLs. A visitor who can chat can potentially receive any loaded knowledge.
 
@@ -35,6 +37,8 @@ The client capability response describes UI availability; it does not authorize 
 Normal users customize the profile and knowledge. Infrastructure supplies service/resource identifiers and model deployment names. Owner bootstrap establishes the explicit administrator. Emergency controls and documented internal limits are operational policy, not a feature-toggle matrix.
 
 `PROFILE_PATH` and `KNOWLEDGE_DATA_DIR` select local packaging sources. The prepared backend bundle contains validated copies; local source paths must not be injected into hosted runtime settings.
+
+The published container image is passed from azd's generated `SERVICE_BACKEND_IMAGE_NAME` into infrastructure as internal `backendImage` state. Reprovisioning must not read the same Container App resource being written: such a self-reference creates an ARM circular dependency. New environments use the bootstrap image until application deployment replaces it.
 
 ## Limits And Storage
 

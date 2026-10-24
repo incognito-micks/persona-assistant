@@ -178,6 +178,7 @@ def realtime_app(monkeypatch):
             relay.CONFIG_AUTH_CLIENT: auth,
             relay.CONFIG_CREDENTIAL: credential,
             relay.CONFIG_REALTIME_DEPLOYMENT: "voice-deployment",
+            relay.CONFIG_REALTIME_TRANSCRIPTION_DEPLOYMENT: "transcription-deployment",
             relay.CONFIG_REALTIME_VOICE: "alloy",
             relay.CONFIG_KNOWLEDGE_SOURCES: ["Trusted knowledge"],
             CONFIG_ADMIN_SETTINGS_CACHE: {"owner_name": "Stale owner"},
@@ -311,7 +312,7 @@ async def test_session_configuration_precedes_audio_and_uses_current_settings(re
         assert configuration["audio"]["input"]["turn_detection"]["type"] == "server_vad"
         assert configuration["audio"]["input"]["turn_detection"]["create_response"] is True
         assert configuration["audio"]["input"]["turn_detection"]["interrupt_response"] is True
-        assert "transcription" not in configuration["audio"]["input"]
+        assert configuration["audio"]["input"]["transcription"] == {"model": "transcription-deployment"}
         assert set(configuration) == {"type", "output_modalities", "max_output_tokens", "audio", "instructions"}
         assert "Current owner" in update["session"]["instructions"]
         assert "Trusted knowledge" in update["session"]["instructions"]
@@ -476,7 +477,12 @@ async def test_each_connection_reads_updated_settings_from_storage(realtime_app,
         {"type": "response.audio.done"},
         {"type": "response.audio_transcript.delta", "delta": "Hello"},
         {"type": "response.audio_transcript.done"},
-        {"type": "conversation.item.input_audio_transcription.completed", "transcript": "Question"},
+        {
+            "type": "conversation.item.input_audio_transcription.completed",
+            "item_id": "item-1",
+            "transcript": "Question",
+        },
+        {"type": "conversation.item.input_audio_transcription.delta", "item_id": "item-1", "delta": "Quest"},
         {"type": "response.created"},
         {"type": "input_audio_buffer.speech_started"},
         {"type": "input_audio_buffer.speech_stopped"},
@@ -486,6 +492,61 @@ async def test_each_connection_reads_updated_settings_from_storage(realtime_app,
 def test_server_events_only_include_fields_consumed_by_frontend(event):
     upstream_event = {**event, "headers": {"Authorization": "upstream-secret"}, "session": {"instructions": "private"}}
     assert relay.parse_server_event(json.dumps(upstream_event)) == event
+
+
+@pytest.mark.parametrize(
+    ("event_type", "field"),
+    [
+        ("conversation.item.input_audio_transcription.delta", "delta"),
+        ("conversation.item.input_audio_transcription.completed", "transcript"),
+    ],
+)
+@pytest.mark.parametrize("item_id", [None, False, 1, [], {}, "", " ", "x" * 257])
+def test_input_transcripts_require_a_bounded_correlation_id(event_type, field, item_id):
+    event = {"type": event_type, "item_id": item_id, field: "Recognized words"}
+    with pytest.raises(relay.RealtimeProtocolError, match="Realtime service unavailable"):
+        relay.parse_server_event(json.dumps(event))
+
+
+@pytest.mark.parametrize(
+    ("event_type", "field"),
+    [
+        ("conversation.item.input_audio_transcription.delta", "delta"),
+        ("conversation.item.input_audio_transcription.completed", "transcript"),
+    ],
+)
+@pytest.mark.parametrize("text", [None, False, 1, [], {}, "x" * (relay.MAX_INPUT_TRANSCRIPT_LENGTH + 1)])
+def test_input_transcripts_reject_malformed_or_oversized_text(event_type, field, text):
+    with pytest.raises(relay.RealtimeProtocolError, match="Realtime service unavailable"):
+        relay.parse_server_event(json.dumps({"type": event_type, "item_id": "item-1", field: text}))
+
+
+@pytest.mark.asyncio
+async def test_correlated_transcript_events_reach_client_without_other_upstream_fields(realtime_app):
+    async with realtime_app.app.test_client().websocket("/realtime?token=browser-token") as connection:
+        await next_sent(realtime_app)
+        for event in [
+            {"type": "conversation.item.input_audio_transcription.delta", "item_id": "item-1", "delta": "Hello"},
+            {
+                "type": "conversation.item.input_audio_transcription.completed",
+                "item_id": "item-1",
+                "transcript": "Hello from the user.",
+            },
+        ]:
+            await realtime_app.upstream.incoming.put(
+                SimpleNamespace(
+                    type=aiohttp.WSMsgType.TEXT,
+                    data=json.dumps(
+                        {
+                            **event,
+                            "audio": "do-not-forward-audio",
+                            "headers": {"Authorization": "do-not-forward-token"},
+                            "session": {"instructions": "do-not-forward-instructions"},
+                        }
+                    ),
+                )
+            )
+            assert json.loads(await asyncio.wait_for(connection.receive(), timeout=2)) == event
 
 
 @pytest.mark.parametrize("item_id", ["item-voice-1", "x" * 256])

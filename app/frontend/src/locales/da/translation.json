@@ -172,7 +172,7 @@
         "releaseError": "Lydressourcerne til stemmechat kunne ikke frigives. Genindlæs siden, før du prøver igen.",
         "listeningPrompt": "Lytter... begynd at tale",
         "startPrompt": "Klik på knappen nedenfor for at starte en stemmesamtale",
-        "transcriptNotice": "Teksten til AI'ens svar vises, når den er tilgængelig. Stemmechat fungerer uden at transskribere det, du siger."
+        "transcriptNotice": "Din tale transskriberes og vises sammen med AI'ens svartekst, når den er tilgængelig. Transskriptioner kan indeholde genkendelsesfejl."
     },
     "admin": {
         "ownerLink": "Ejeradministration",

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import styles from "./VoiceChat.module.css";
 import { useRealtimeWebSocket } from "./useRealtimeWebSocket";
+import type { UserVoiceTurn } from "./useRealtimeWebSocket";
 import { useAudioCapture } from "./useAudioCapture";
 import { useAudioPlayback } from "./useAudioPlayback";
 import { configApi } from "../../api";
@@ -11,6 +12,7 @@ import { configApi } from "../../api";
 interface ConversationEntry {
     role: "user" | "assistant";
     content: string;
+    itemId?: string;
 }
 
 export function Component() {
@@ -25,7 +27,6 @@ export function Component() {
     const sessionActiveRef = useRef(false);
     const mountedRef = useRef(false);
     const transcriptEndRef = useRef<HTMLDivElement>(null);
-    const prevTranscriptRef = useRef("");
 
     const { playAudioChunk, stopPlayback, resetPlaybackTime } = useAudioPlayback();
     const { isCapturing, startCapture, stopCapture, setOnAudioChunk } = useAudioCapture();
@@ -56,19 +57,30 @@ export function Component() {
         return () => controller.abort();
     }, []);
 
-    const recordVoiceTurn = useCallback((previousAssistantReply: string) => {
-        prevTranscriptRef.current = "";
+    const recordVoiceTurn = useCallback((turn: UserVoiceTurn, previousAssistantReply: string) => {
         setConversation(previous => [
             ...previous,
             ...(previousAssistantReply ? [{ role: "assistant" as const, content: previousAssistantReply }] : []),
-            { role: "user", content: "" }
+            { role: "user", content: turn.transcript, itemId: turn.itemId }
         ]);
+    }, []);
+
+    const updateUserTranscript = useCallback((turn: UserVoiceTurn) => {
+        setConversation(previous =>
+            previous.map(entry => (entry.role === "user" && entry.itemId === turn.itemId ? { ...entry, content: turn.transcript } : entry))
+        );
+    }, []);
+
+    const recordAssistantReply = useCallback((content: string) => {
+        setConversation(previous => [...previous, { role: "assistant", content }]);
     }, []);
 
     const { status, error, closeReason, transcript, isModelSpeaking, isProcessing, connect, disconnect, sendAudioChunk } = useRealtimeWebSocket({
         onAudioDelta: playAudioChunk,
         onDisconnected: stopAudio,
-        onUserVoiceTurn: recordVoiceTurn
+        onUserVoiceTurn: recordVoiceTurn,
+        onUserTranscript: updateUserTranscript,
+        onAssistantReplyCompleted: recordAssistantReply
     });
 
     const stopSession = useCallback(() => {
@@ -86,14 +98,6 @@ export function Component() {
         transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [conversation, transcript]);
 
-    // When transcript resets (new response.created), save the previous one
-    useEffect(() => {
-        if (transcript === "" && prevTranscriptRef.current) {
-            setConversation(prev => [...prev, { role: "assistant", content: prevTranscriptRef.current }]);
-        }
-        prevTranscriptRef.current = transcript;
-    }, [transcript]);
-
     const handleToggle = useCallback(async () => {
         if (sessionActiveRef.current) {
             stopSession();
@@ -110,7 +114,6 @@ export function Component() {
         try {
             setConversation([]);
             resetPlaybackTime();
-            prevTranscriptRef.current = "";
 
             await connect();
             if (sessionGenerationRef.current !== generation) return;
@@ -199,7 +202,7 @@ export function Component() {
                     <>
                         {conversation.map((entry, index) => (
                             <div key={index} className={entry.role === "user" ? styles.userBubble : styles.assistantBubble}>
-                                {entry.role === "user" ? t("voice.voiceMessage") : entry.content}
+                                {entry.role === "user" ? entry.content.trim() || t("voice.voiceMessage") : entry.content}
                             </div>
                         ))}
                         {/* Live transcript being generated */}
