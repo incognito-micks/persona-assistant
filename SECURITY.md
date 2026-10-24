@@ -44,6 +44,8 @@ Triage alerts by advisory and affected package, not just the number of inherited
 
 Updating source requirements does not patch a running deployment. Rebuild and redeploy through the authorized release process before considering a hosted instance updated.
 
+The text prompt adapter parses only repository-owned template roles before interpolating values. History stays structured, and sources, job descriptions, and questions remain literal text within their assigned messages. Preserve this boundary, the scoped template loader, and rejection of unsupported roles or non-text output when changing the prompt SDK.
+
 ## Validation Boundaries
 
 Offline tests and infrastructure compilation do not validate a cloud deployment, directory configuration, quotas, gateway policy, real microphone, or every supported browser. Complete those checks before claiming production readiness.

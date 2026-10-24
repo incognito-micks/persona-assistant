@@ -10,7 +10,7 @@ import subprocess
 import sys
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -311,12 +311,12 @@ def check_models(
                         raise ValueError("Retirement date is not a string.")
                     retired = datetime.fromisoformat(retirement.replace("Z", "+00:00"))
                     if retired.tzinfo is None:
-                        retired = retired.replace(tzinfo=timezone.utc)
+                        retired = retired.replace(tzinfo=UTC)
                 except (ValueError, TypeError) as exc:
                     raise PreflightError(
                         f"Cannot verify {spec.name} retirement date; review model availability."
                     ) from exc
-                if retired <= datetime.now(timezone.utc):
+                if retired <= datetime.now(UTC):
                     raise PreflightError(
                         f"{spec.name} inference has retired; update the pinned model before deployment."
                     )

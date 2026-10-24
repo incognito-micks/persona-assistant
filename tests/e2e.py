@@ -315,8 +315,10 @@ def mock_chat(page: Page, responses: list[dict]):
 
 
 def send_question(page: Page, question: str = QUESTION) -> None:
+    submit_button = page.get_by_role("button", name="Submit question", exact=True)
+    expect(submit_button).to_be_visible()
     page.get_by_role("textbox").fill(question)
-    page.get_by_role("button", name="Submit question", exact=True).click()
+    submit_button.click()
 
 
 def expect_app_text(page: Page, text: str | re.Pattern) -> None:

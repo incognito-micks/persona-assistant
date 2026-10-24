@@ -245,7 +245,7 @@ class AuthenticationHelper:
                             return jwks
                         if response.status not in {429, 500, 502, 503, 504}:
                             raise AuthError("Unable to get keys to validate auth token.", 401)
-                except (aiohttp.ClientError, asyncio.TimeoutError, ValueError):
+                except (TimeoutError, aiohttp.ClientError, ValueError):
                     pass
                 if attempt + 1 < JWKS_FETCH_ATTEMPTS:
                     await asyncio.sleep(JWKS_RETRY_DELAY_SECONDS)

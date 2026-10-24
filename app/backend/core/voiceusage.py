@@ -182,7 +182,7 @@ async def release_voice_lease(lease: VoiceSessionLease) -> bool:
     """Keep storage exception chains out of cancelled shield callbacks."""
     try:
         await asyncio.wait_for(lease.release(), timeout=STORE_OPERATION_TIMEOUT_SECONDS)
-    except (ServiceUnavailable, asyncio.TimeoutError):
+    except (TimeoutError, ServiceUnavailable):
         logger.warning("Voice capacity release failed; reservation will expire")
         return False
     return True

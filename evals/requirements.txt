@@ -1,3 +1,4 @@
+# Python 3.11+; retained evaluator dependencies include the shared runtime.
 dotenv-azd==0.3.0
 -r ../app/backend/requirements.txt
 git+https://github.com/Azure-Samples/ai-rag-chat-evaluator@2025-06-02

@@ -1,2 +1,3 @@
+# Python 3.11+; runtime pins and security minimums come from the backend.
 -r ../app/backend/requirements.txt
 msgraph-sdk==1.45.0

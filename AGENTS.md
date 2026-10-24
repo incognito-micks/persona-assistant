@@ -13,6 +13,7 @@ Preserve unrelated staged/working changes and respect delegated file ownership. 
 | [app/backend/app.py](app/backend/app.py) | Quart routes, model/credential setup, metadata, admission |
 | [app/backend/approaches/chat.py](app/backend/approaches/chat.py) | Grounded chat/streaming |
 | [app/backend/approaches/approach.py](app/backend/approaches/approach.py) | Completion and token-budget support |
+| [app/backend/approaches/promptmanager.py](app/backend/approaches/promptmanager.py) | Scoped Prompty 2 loading and text-message adaptation |
 | [app/backend/approaches/prompts/persona_answer.prompty](app/backend/approaches/prompts/persona_answer.prompty) | Active text prompt |
 | [app/backend/admin/settings_cosmosdb.py](app/backend/admin/settings_cosmosdb.py) | Persisted owner overrides and bounded operational analytics |
 | [app/backend/core](app/backend/core) | Auth, knowledge, profile, URL validation, analytics, usage |
@@ -30,6 +31,7 @@ Preserve unrelated staged/working changes and respect delegated file ownership. 
 - Profile precedence is neutral defaults, selected profile, then persisted owner fields. Await `get_current_settings()` per request; preserve ETag checks and validation on updates.
 - Text and voice share the profile/persona and complete knowledge. Query classification affects tone, never access to grounding.
 - Public requests cannot override or inject owner system prompts. Persona configuration belongs to validated profile/settings, not visitor overrides.
+- Parse bundled prompt roles before rendering visitor-controlled values, and keep history as structured text messages. Preserve the prompt-directory boundary; never parse interpolated visitor text as message roles.
 - Preserve prompt budgeting, complete-turn trimming, and explicit mandatory-context errors. Never trim saved browser history.
 - Preserve SSRF destination/redirect validation and response-byte caps.
 - Realtime accepts only allowlisted audio events. Preserve cancellation, session/concurrency/daily admission limits, safe close reasons, and microphone cleanup.
@@ -50,7 +52,7 @@ Use fictional fixtures/media. Review publication rights and working/staged trees
 
 ## Validation
 
-Use the repository `.venv`, existing tooling, and mocked services. Run each command block from the repository root; type-check subshells preserve that directory. Run a focused test first.
+Use Python 3.11 or newer, the repository `.venv`, existing tooling, and mocked services. Run each command block from the repository root; type-check subshells preserve that directory. Run a focused test first.
 
 When Bicep is installed, warm its public module cache with `az bicep restore --file infra/main.bicep` before offline tests. Do not remove `--no-restore` from the compilation fixtures or introduce network/service calls inside tests. Mock telemetry configuration/instrumentors in unit tests so dummy connection strings never start live exporters.
 
@@ -90,7 +92,7 @@ Use coverage annotations for touched missing paths. Use markdownlint and verify 
 
 Reuse existing helpers and typing patterns. Do not introduce single-underscore private Python names, unrelated renames, broad catches, silent defaults on malformed input, or success-shaped errors.
 
-Regenerate dependency locks with package tooling; do not fabricate or hand-edit generated resolution when a registry is unavailable. Keep script-only dependencies separate from runtime inputs.
+Regenerate dependency locks with package tooling and `--python-version 3.11`; preserve input security minimums. Do not fabricate or hand-edit generated resolution when a registry is unavailable. Keep script-only dependencies separate from runtime inputs.
 
 No cloud provisioning, deployment, remote builds, identity changes, publishing, or commits without explicit authorization. Follow [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and the [pull-request template](.github/PULL_REQUEST_TEMPLATE.md).
 

@@ -1,3 +1,4 @@
+# Python 3.11+; shared backend runtime pins are included through scripts.
 -r scripts/requirements.txt
 ruff>=0.14.2
 black

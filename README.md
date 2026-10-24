@@ -32,7 +32,9 @@ For private source files outside the checkout, set `PROFILE_PATH` and `KNOWLEDGE
 
 ## Local Development
 
-Use Python 3.10 or newer and Node.js 20.19 or newer (22 LTS recommended); see the [tested compatibility scope](#tested-compatibility) before choosing another runtime. Live development and deployment also need [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) (`az`) and [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd) (`azd`) 1.37.1 or newer. Docker is used for local container validation.
+Use Python 3.11 or newer and Node.js 20.19 or newer (22 LTS recommended); see the [tested compatibility scope](#tested-compatibility) before choosing another runtime. Live development and deployment also need [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) (`az`) and [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd) (`azd`) 1.37.1 or newer. Docker is used for local container validation.
+
+Patched Prompty 2.x requires Python 3.11 or newer. Python 3.10 is no longer supported; the hosted Python 3.13 container is unchanged.
 
 All shell examples use Bash and start at the repository root. Create and activate the repository virtual environment:
 
@@ -136,7 +138,7 @@ The [CI workflow](.github/workflows/python-test.yaml) defines the repeatable tes
 
 | Surface | Validated scope |
 | --- | --- |
-| Python CI | 3.10, 3.11, 3.12, 3.13, and 3.14 |
+| Python CI | 3.11, 3.12, 3.13, and 3.14 |
 | Node.js CI | 20.19 and 22 |
 | Linux CI | Build, translations, lint, types, formatting, unit/API coverage, and Chromium browser tests |
 | Windows CI | Build, translations, lint, types, and formatting; Python test suites and browser workflows are not run |

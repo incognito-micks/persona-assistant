@@ -2,7 +2,7 @@ import asyncio
 import base64
 import json
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import aiohttp
@@ -67,9 +67,9 @@ def create_mock_jwt(kid="mock_kid", oid="OID_X", **claims):
         "iss": "https://login.microsoftonline.com/TENANT_ID/v2.0",
         "sub": "AaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaA",
         "aud": "SERVER_APP",
-        "exp": int((datetime.now(timezone.utc) + timedelta(hours=1)).timestamp()),
-        "iat": int(datetime.now(timezone.utc).timestamp()),
-        "nbf": int(datetime.now(timezone.utc).timestamp()),
+        "exp": int((datetime.now(UTC) + timedelta(hours=1)).timestamp()),
+        "iat": int(datetime.now(UTC).timestamp()),
+        "nbf": int(datetime.now(UTC).timestamp()),
         "name": "John Doe",
         "oid": oid,
         "preferred_username": "john.doe@example.com",
@@ -504,7 +504,7 @@ async def test_concurrent_cold_cache_rejections_do_not_refetch_new_keys(jwks_end
 @pytest.mark.asyncio
 async def test_jwks_timeouts_and_retries_share_one_short_lived_session(monkeypatch, jwks_endpoint):
     token, public_key, claims = create_mock_jwt()
-    jwks_endpoint.responses.append(asyncio.TimeoutError())
+    jwks_endpoint.responses.append(TimeoutError())
     jwks_endpoint.respond(create_mock_jwks(public_key))
     original_session = aiohttp.ClientSession
     sessions = []
@@ -588,7 +588,7 @@ async def test_malformed_signing_keys_fail_closed(jwks_endpoint, overrides):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("claim", ["iss", "aud", "exp", "nbf", "iat", "signature"])
 async def test_invalid_claims_and_signature_are_not_accepted(jwks_endpoint, claim):
-    now = int(datetime.now(timezone.utc).timestamp())
+    now = int(datetime.now(UTC).timestamp())
     overrides = {
         "iss": {"iss": "https://untrusted.example/v2.0"},
         "aud": {"aud": "OTHER_APP"},
@@ -1122,7 +1122,7 @@ async def test_owner_decorator_requires_an_exact_nonempty_configured_oid(jwks_en
         {"nonce": ""},
         {"sub": ""},
         {"scp": "access_as_user"},
-        {"exp": int((datetime.now(timezone.utc) - timedelta(minutes=1)).timestamp())},
+        {"exp": int((datetime.now(UTC) - timedelta(minutes=1)).timestamp())},
     ],
 )
 async def test_owner_routes_reject_other_users_tenants_apps_and_noninteractive_tokens(jwks_endpoint, overrides):

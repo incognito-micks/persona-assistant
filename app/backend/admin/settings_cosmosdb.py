@@ -2,7 +2,7 @@ import logging
 import os
 import time
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from azure.core import MatchConditions
@@ -210,7 +210,7 @@ async def compute_analytics_summary(container: ContainerProxy, since: int, until
     ):
         queries_by_day.append(
             {
-                "date": datetime.fromtimestamp(row["day"] * 86400, timezone.utc).strftime("%Y-%m-%d"),
+                "date": datetime.fromtimestamp(row["day"] * 86400, UTC).strftime("%Y-%m-%d"),
                 "count": row["count"],
             }
         )

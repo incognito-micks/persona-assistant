@@ -190,7 +190,7 @@ async def relay_messages(upstream_ws: aiohttp.ClientWebSocketResponse[bool]) -> 
         while True:
             try:
                 data = await asyncio.wait_for(websocket.receive(), timeout=CLIENT_IDLE_TIMEOUT_SECONDS)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 raise RealtimeProtocolError(1008, "Session idle timeout") from None
             message = parse_client_event(data)
             now = monotonic()
