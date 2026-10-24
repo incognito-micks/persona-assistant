@@ -30,7 +30,7 @@ For private source files outside the checkout, set `PROFILE_PATH` and `KNOWLEDGE
 
 ## Local Development
 
-Use Python 3.10 or newer, Node.js 20 or newer, and the repository virtual environment:
+Use Python 3.10 or newer, Node.js 20.19 or newer (22 LTS recommended), and the repository virtual environment:
 
 ```sh
 python3 -m venv .venv

@@ -1,4 +1,6 @@
 {
+    "siteDescription": "Converse com um assistente pessoal de IA.",
+    "questionInputLabel": "Sua mensagem",
     "contextTruncated": "Mensagens anteriores foram omitidas desta resposta para respeitar o limite de contexto do modelo. Seu histórico salvo não foi alterado.",
     "pageTitle": "Azure OpenAI + AI Search",
     "headerTitle": "Azure OpenAI + AI Search",
@@ -41,6 +43,7 @@
         "1": "O que está incluído no meu plano Northwind Health Plus que não está no padrão?",
         "2": "O que acontece em uma avaliação de desempenho?",
         "3": "O que faz um Gerente de Produto?",
+        "4": "Como posso entrar em contato?",
         "placeholder": "Digite uma nova pergunta (por exemplo: Meu plano cobre exames oftalmológicos anuais?)"
     },
     "askTitle": "Pergunte aos seus dados",
@@ -67,7 +70,7 @@
         "copied": "Copiado!"
     },
 
-    "headerTexts":{
+    "headerTexts": {
         "thoughtProcess": "Processo de pensamento",
         "supportingContent": "Conteúdo de suporte",
         "citation": "Citação"
@@ -134,42 +137,141 @@
         "useGroupsSecurityFilter": "Usar filtro de segurança de grupos",
         "shouldStream": "Stream chat completion responses"
     },
+    "configuration": {
+        "loading": "Carregando a configuração do chat",
+        "error": "Não foi possível carregar a configuração do chat. Tente novamente."
+    },
+    "profile": {
+        "avatar": "Avatar de {{owner}}",
+        "email": "Enviar e-mail ao proprietário",
+        "calendar": "Agendar uma chamada",
+        "linkedin": "LinkedIn",
+        "vacation": "{{owner}} está ausente no momento. O assistente de IA está aqui para ajudar.",
+        "vacationUntil": "{{owner}} estará ausente até {{date}}. O assistente de IA está aqui para ajudar."
+    },
+    "privacy": {
+        "disclosure": "Este é um assistente de IA, não o proprietário. As mensagens são processadas pelo serviço de IA configurado. Evite compartilhar informações sensíveis.",
+        "localHistory": "O histórico do chat é salvo neste navegador. Você pode excluir conversas no Histórico do chat.",
+        "voice": "Você está falando com uma IA, não com o proprietário. Seu microfone só é ativado quando você escolhe Iniciar conversa por voz. O áudio é enviado ao serviço de IA configurado até você parar ou sair desta página. Evite compartilhar informações sensíveis."
+    },
+    "voice": {
+        "open": "Experimente a conversa por voz",
+        "title": "Conversa por voz",
+        "start": "Iniciar conversa por voz",
+        "stop": "Parar conversa por voz",
+        "back": "Mudar para conversa por texto",
+        "unavailable": "A conversa por voz não está habilitada nesta implantação.",
+        "connecting": "Conectando...",
+        "speaking": "A IA está falando",
+        "listening": "Ouvindo",
+        "startingMicrophone": "Ativando o microfone...",
+        "processing": "Preparando a resposta da IA...",
+        "voiceMessage": "Mensagem de voz",
+        "connectionErrorLabel": "Erro de conexão",
+        "disconnected": "Desconectado",
+        "sessionError": "Erro na conversa por voz",
+        "connectionError": "Não foi possível conectar à conversa por voz. Tente novamente.",
+        "microphoneError": "Não foi possível ativar o microfone. Verifique as permissões do microfone e tente novamente.",
+        "playbackError": "Não foi possível reproduzir o áudio da conversa por voz. Tente novamente.",
+        "releaseError": "Não foi possível liberar os recursos de áudio da conversa por voz. Recarregue a página antes de tentar novamente.",
+        "listeningPrompt": "Ouvindo... comece a falar",
+        "startPrompt": "Clique no botão abaixo para iniciar uma conversa por voz",
+        "transcriptNotice": "O texto das respostas da IA é exibido quando está disponível. A conversa por voz funciona sem transcrever suas palavras."
+    },
+    "admin": {
+        "ownerLink": "Administração do proprietário",
+        "title": "Administração do proprietário",
+        "settingsTitle": "Configurações de administração",
+        "initializing": "Inicializando a autenticação do proprietário...",
+        "disabled": "A administração do proprietário não está configurada.",
+        "setup": "O chat público continua funcionando. Para habilitar a administração, configure no servidor um aplicativo do Microsoft Entra para um único locatário e o ID de objeto do proprietário. Em seguida, recarregue esta página.",
+        "signInHelp": "Somente o proprietário configurado pode acessar estas configurações. Entre com a conta do Microsoft Entra desse proprietário.",
+        "signIn": "Entrar como proprietário",
+        "signOut": "Sair da administração",
+        "loading": "Carregando as configurações...",
+        "authRequired": "Entre novamente para gerenciar as configurações do proprietário.",
+        "ownerDenied": "Acesso negado. Esta conta não pertence ao proprietário configurado.",
+        "conflict": "As configurações foram alteradas em outro lugar. Recarregue esta página antes de salvar novamente.",
+        "authError": "Não foi possível inicializar a autenticação do proprietário. Verifique a configuração do servidor e recarregue esta página.",
+        "loginError": "Não foi possível entrar como proprietário. Tente novamente.",
+        "logoutError": "Não foi possível sair da administração. Tente novamente.",
+        "loadError": "Não foi possível carregar as configurações do proprietário. Tente novamente.",
+        "saveError": "Não foi possível salvar as configurações. Verifique os valores e tente novamente.",
+        "saved": "Configurações salvas com sucesso!",
+        "settingsTab": "Configurações",
+        "analyticsTab": "Estatísticas",
+        "save": "Salvar configurações",
+        "saving": "Salvando...",
+        "fields": {
+            "ownerName": "Nome do proprietário",
+            "assistantName": "Nome do assistente",
+            "description": "Descrição do site",
+            "avatarUrl": "URL do avatar",
+            "socialImageUrl": "URL da imagem de prévia para redes sociais",
+            "ownerEmail": "E-mail do proprietário",
+            "calendarUrl": "URL de agendamento do calendário",
+            "linkedinUrl": "URL do LinkedIn",
+            "tone": "Tom do assistente",
+            "managerEmail": "E-mail do gestor (privado)",
+            "welcome": "Mensagem de boas-vindas",
+            "examples": "Perguntas de exemplo",
+            "vacation": "Modo de férias",
+            "returnDate": "Data de retorno",
+            "funFacts": "Curiosidades"
+        },
+        "examplesHelp": "Uma pergunta de exemplo por linha. Deixe em branco para ocultar os exemplos.",
+        "removeFunFact": "Remover curiosidade",
+        "addFunFact": "Adicionar curiosidade",
+        "analyticsTitle": "Estatísticas de uso (últimos 30 dias)",
+        "analyticsPrivacy": "O texto original das perguntas e a identidade dos visitantes não são armazenados. A contagem de sessões não equivale ao número de pessoas distintas.",
+        "refresh": "Atualizar",
+        "analyticsLoading": "Carregando as estatísticas...",
+        "analyticsEmpty": "Clique em Atualizar para carregar as estatísticas.",
+        "loadAnalytics": "Carregar estatísticas",
+        "analyticsError": "Não foi possível carregar as estatísticas. Tente novamente.",
+        "metrics": {
+            "queries": "Total de consultas",
+            "sessions": "Sessões",
+            "responseTime": "Tempo médio de resposta",
+            "sessionDepth": "Profundidade média das sessões",
+            "examples": "Taxa de cliques nos exemplos",
+            "highConfidence": "Confiança alta",
+            "lowConfidence": "Confiança baixa",
+            "errors": "Erros"
+        },
+        "confidenceTitle": "Distribuição dos níveis de confiança",
+        "confidence": {
+            "high": "Alta",
+            "medium": "Média",
+            "low": "Baixa",
+            "unknown": "Desconhecida"
+        },
+        "recentActivity": "Atividade recente",
+        "chatRequest": "Solicitação de chat",
+        "requestFailed": "Falha"
+    },
 
     "helpTexts": {
-        "promptTemplate":
-            "Substitui o prompt usado para gerar a resposta com base na pergunta e nos resultados da pesquisa. Para adicionar ao prompt existente em vez de substituí-lo por completo, comece seu prompt com '>>>'.",
-        "temperature":
-            "Define a temperatura da solicitação para o LLM que gera a resposta. Temperaturas mais altas resultam em respostas mais criativas, mas podem ser menos fundamentadas.",
+        "promptTemplate": "Substitui o prompt usado para gerar a resposta com base na pergunta e nos resultados da pesquisa. Para adicionar ao prompt existente em vez de substituí-lo por completo, comece seu prompt com '>>>'.",
+        "temperature": "Define a temperatura da solicitação para o LLM que gera a resposta. Temperaturas mais altas resultam em respostas mais criativas, mas podem ser menos fundamentadas.",
         "seed": "Define um seed para melhorar a reprodutibilidade das respostas do modelo. O seed pode ser qualquer número inteiro.",
-        "searchScore":
-             "Define uma pontuação mínima para os resultados da pesquisa retornados pela pesquisa do Azure AI. O intervalo de pontuação depende de você usar o modo híbrido (padrão), vetores ou texto.",
-        "rerankerScore":
-             "Define uma pontuação mínima para os resultados da pesquisa retornados pelo ranker semântico. A pontuação varia de 0 a 4. Quanto maior a pontuação, mais relevante é o resultado em relação à pergunta.",
-        "retrieveNumber":
-             "Define o número de resultados de pesquisa a serem recuperados na pesquisa do Azure AI. Mais resultados podem aumentar a chance de encontrar a resposta correta, mas podem fazer com que o modelo se 'perca'.",
-       "agenticReasoningEffort":
-            "Controla quanto raciocínio o agente aplica ao montar planos com várias consultas. Um esforço maior pode melhorar a cobertura, mas aumenta tokens e latência.",
-        "includeCategory":
-            "Especifica uma categoria para incluir nos resultados da pesquisa. Não há categorias usadas no conjunto de dados padrão.",
-         "excludeCategory":
-            "Especifica uma categoria para excluir dos resultados da pesquisa. Não há categorias usadas no conjunto de dados padrão.",
-         "useSemanticReranker":
-            "Ativa o rankeador semântico da pesquisa do Azure AI, um modelo que reordena os resultados da pesquisa com base na similaridade semântica à consulta do usuário.",
-        "useSemanticCaptions":
-             "Envia legendas semânticas para o LLM em vez do resultado completo da pesquisa. Uma legenda semântica é extraída durante o processo de ranqueamento semântico.",
-        "useQueryRewriting":
-             "Habilita a reescrita de consultas do Azure AI Search, um processo que modifica a consulta do usuário para melhorar os resultados da pesquisa. Requer que o rankeador semântico esteja habilitado.",
-        "reasoningEffort":
-             "Define o esforço de raciocínio para o LLM. Valores mais altos resultam em mais raciocínio, mas podem levar mais tempo para gerar uma resposta. O padrão é médio.",
+        "searchScore": "Define uma pontuação mínima para os resultados da pesquisa retornados pela pesquisa do Azure AI. O intervalo de pontuação depende de você usar o modo híbrido (padrão), vetores ou texto.",
+        "rerankerScore": "Define uma pontuação mínima para os resultados da pesquisa retornados pelo ranker semântico. A pontuação varia de 0 a 4. Quanto maior a pontuação, mais relevante é o resultado em relação à pergunta.",
+        "retrieveNumber": "Define o número de resultados de pesquisa a serem recuperados na pesquisa do Azure AI. Mais resultados podem aumentar a chance de encontrar a resposta correta, mas podem fazer com que o modelo se 'perca'.",
+        "agenticReasoningEffort": "Controla quanto raciocínio o agente aplica ao montar planos com várias consultas. Um esforço maior pode melhorar a cobertura, mas aumenta tokens e latência.",
+        "includeCategory": "Especifica uma categoria para incluir nos resultados da pesquisa. Não há categorias usadas no conjunto de dados padrão.",
+        "excludeCategory": "Especifica uma categoria para excluir dos resultados da pesquisa. Não há categorias usadas no conjunto de dados padrão.",
+        "useSemanticReranker": "Ativa o rankeador semântico da pesquisa do Azure AI, um modelo que reordena os resultados da pesquisa com base na similaridade semântica à consulta do usuário.",
+        "useSemanticCaptions": "Envia legendas semânticas para o LLM em vez do resultado completo da pesquisa. Uma legenda semântica é extraída durante o processo de ranqueamento semântico.",
+        "useQueryRewriting": "Habilita a reescrita de consultas do Azure AI Search, um processo que modifica a consulta do usuário para melhorar os resultados da pesquisa. Requer que o rankeador semântico esteja habilitado.",
+        "reasoningEffort": "Define o esforço de raciocínio para o LLM. Valores mais altos resultam em mais raciocínio, mas podem levar mais tempo para gerar uma resposta. O padrão é médio.",
         "suggestFollowupQuestions": "Solicita ao LLM que sugira perguntas de acompanhamento com base na consulta do usuário.",
         "textEmbeddings": "Quando selecionado, a pesquisa usará incorporações do modelo de incorporações apenas de texto para os trechos de texto extraídos.",
         "imageEmbeddings": "Quando selecionado, a pesquisa usará incorporações do modelo de incorporações multimodal para as imagens extraídas.",
-       "llmTextInputs": "Quando selecionado, o conteúdo de texto dos resultados de pesquisa é enviado ao LLM como contexto.",
-       "llmImageInputs": "Quando selecionado, as imagens dos resultados de pesquisa são enviadas ao LLM como contexto.",
-        "llmInputs":
-            "Define o que será enviado ao modelo de visão. 'Imagens e texto' envia ambos, 'Imagens' envia apenas imagens e 'Texto' envia apenas texto.",
-        "retrievalMode":
-            "Define o modo de recuperação para a consulta do Azure AI Search. 'Vetores + Texto (Híbrido)' usa uma combinação de busca vetorial e de texto completo, 'Vetores' usa apenas a busca vetorial, e 'Texto' usa apenas a busca de texto completo. O híbrido geralmente é o ideal.",
+        "llmTextInputs": "Quando selecionado, o conteúdo de texto dos resultados de pesquisa é enviado ao LLM como contexto.",
+        "llmImageInputs": "Quando selecionado, as imagens dos resultados de pesquisa são enviadas ao LLM como contexto.",
+        "llmInputs": "Define o que será enviado ao modelo de visão. 'Imagens e texto' envia ambos, 'Imagens' envia apenas imagens e 'Texto' envia apenas texto.",
+        "retrievalMode": "Define o modo de recuperação para a consulta do Azure AI Search. 'Vetores + Texto (Híbrido)' usa uma combinação de busca vetorial e de texto completo, 'Vetores' usa apenas a busca vetorial, e 'Texto' usa apenas a busca de texto completo. O híbrido geralmente é o ideal.",
         "streamChat": "Transmite continuamente a resposta para a interface do chat conforme é gerada.",
         "useOidSecurityFilter": "Filtra os resultados da pesquisa com base no OID do usuário autenticado.",
         "useGroupsSecurityFilter": "Filtra os resultados da pesquisa com base nos grupos do usuário autenticado.",

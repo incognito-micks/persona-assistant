@@ -1,4 +1,6 @@
 {
+    "siteDescription": "Kişisel bir yapay zekâ asistanıyla sohbet edin.",
+    "questionInputLabel": "Mesajınız",
     "contextTruncated": "Modelin bağlam sınırına uymak için önceki iletiler bu yanıttan çıkarıldı. Kaydedilmiş geçmişiniz değişmedi.",
     "pageTitle": "Azure OpenAI + AI Arama",
     "headerTitle": "Azure OpenAI + AI Arama",
@@ -41,6 +43,7 @@
         "1": "Northwind Health Plus planımda standart planda olmayan neler var?",
         "2": "Performans değerlendirmesinde ne olur?",
         "3": "Bir Ürün Yöneticisi ne yapar?",
+        "4": "Nasıl iletişime geçebilirim?",
         "placeholder": "Yeni bir soru yazın (ör. planım yıllık göz muayenelerini kapsıyor mu?)"
     },
     "askTitle": "Verilerinize sorun",
@@ -134,42 +137,141 @@
         "useGroupsSecurityFilter": "Grup güvenlik filtresini kullan",
         "shouldStream": "Sohbet yanıtlarını akış olarak gönder"
     },
+    "configuration": {
+        "loading": "Sohbet yapılandırması yükleniyor",
+        "error": "Sohbet yapılandırması yüklenemedi. Lütfen tekrar deneyin."
+    },
+    "profile": {
+        "avatar": "{{owner}} için avatar",
+        "email": "Profil sahibine e-posta gönder",
+        "calendar": "Görüşme planla",
+        "linkedin": "LinkedIn",
+        "vacation": "{{owner}} şu anda müsait değil. Yapay zekâ asistanı size yardımcı olmak için burada.",
+        "vacationUntil": "{{owner}}, {{date}} tarihine kadar müsait değil. Yapay zekâ asistanı size yardımcı olmak için burada."
+    },
+    "privacy": {
+        "disclosure": "Bu bir yapay zekâ asistanıdır; profil sahibinin kendisi değildir. Mesajlar, yapılandırılmış yapay zekâ hizmeti tarafından işlenir. Hassas bilgileri paylaşmaktan kaçının.",
+        "localHistory": "Sohbet geçmişi bu tarayıcıda kaydedilir. Konuşmaları Sohbet geçmişi bölümünden silebilirsiniz.",
+        "voice": "Profil sahibiyle değil, bir yapay zekâyla konuşuyorsunuz. Mikrofonunuz yalnızca Sesli sohbeti başlat seçeneğini seçtiğinizde açılır. Siz durdurana veya bu sayfadan ayrılana kadar ses, yapılandırılmış yapay zekâ hizmetine gönderilir. Hassas bilgileri paylaşmaktan kaçının."
+    },
+    "voice": {
+        "open": "Sesli sohbeti dene",
+        "title": "Sesli sohbet",
+        "start": "Sesli sohbeti başlat",
+        "stop": "Sesli sohbeti durdur",
+        "back": "Yazılı sohbete geç",
+        "unavailable": "Bu dağıtımda sesli sohbet etkin değil.",
+        "connecting": "Bağlanıyor...",
+        "speaking": "Yapay zekâ konuşuyor",
+        "listening": "Dinleniyor",
+        "startingMicrophone": "Mikrofon açılıyor...",
+        "processing": "Yapay zekâ yanıtı hazırlanıyor...",
+        "voiceMessage": "Sesli mesaj",
+        "connectionErrorLabel": "Bağlantı hatası",
+        "disconnected": "Bağlantı kesildi",
+        "sessionError": "Sesli sohbet hatası",
+        "connectionError": "Sesli sohbete bağlanılamadı. Lütfen tekrar deneyin.",
+        "microphoneError": "Mikrofon açılamadı. Mikrofon izinlerinizi kontrol edip tekrar deneyin.",
+        "playbackError": "Sesli sohbetin sesi oynatılamadı. Lütfen tekrar deneyin.",
+        "releaseError": "Sesli sohbetin ses kaynakları serbest bırakılamadı. Tekrar denemeden önce sayfayı yeniden yükleyin.",
+        "listeningPrompt": "Dinleniyor... konuşmaya başlayın",
+        "startPrompt": "Sesli bir konuşma başlatmak için aşağıdaki düğmeye tıklayın",
+        "transcriptNotice": "Yapay zekâ yanıtlarının metni, mevcut olduğunda gösterilir. Sesli sohbet, söylediklerinizi yazıya dökmeden çalışır."
+    },
+    "admin": {
+        "ownerLink": "Profil sahibi yönetimi",
+        "title": "Profil sahibine özel yönetim",
+        "settingsTitle": "Yönetim ayarları",
+        "initializing": "Profil sahibinin kimlik doğrulaması başlatılıyor...",
+        "disabled": "Profil sahibine özel yönetim yapılandırılmamış.",
+        "setup": "Herkese açık sohbet çalışmaya devam eder. Yönetimi etkinleştirmek için sunucuda tek kiracılı bir Microsoft Entra uygulaması ve profil sahibinin nesne kimliğini yapılandırın, ardından bu sayfayı yeniden yükleyin.",
+        "signInHelp": "Bu ayarlara yalnızca yapılandırılmış profil sahibi erişebilir. O profil sahibinin Microsoft Entra hesabıyla oturum açın.",
+        "signIn": "Profil sahibi olarak oturum aç",
+        "signOut": "Yönetim oturumunu kapat",
+        "loading": "Ayarlar yükleniyor...",
+        "authRequired": "Profil sahibinin ayarlarını yönetmek için lütfen yeniden oturum açın.",
+        "ownerDenied": "Erişim reddedildi. Bu hesap, yapılandırılmış profil sahibine ait değil.",
+        "conflict": "Ayarlar başka bir yerde değiştirildi. Tekrar kaydetmeden önce bu sayfayı yeniden yükleyin.",
+        "authError": "Profil sahibinin kimlik doğrulaması başlatılamadı. Sunucu yapılandırmasını kontrol edip bu sayfayı yeniden yükleyin.",
+        "loginError": "Profil sahibi olarak oturum açılamadı. Lütfen tekrar deneyin.",
+        "logoutError": "Yönetim oturumu kapatılamadı. Lütfen tekrar deneyin.",
+        "loadError": "Profil sahibinin ayarları yüklenemedi. Lütfen tekrar deneyin.",
+        "saveError": "Ayarlar kaydedilemedi. Değerleri kontrol edip tekrar deneyin.",
+        "saved": "Ayarlar başarıyla kaydedildi!",
+        "settingsTab": "Ayarlar",
+        "analyticsTab": "İstatistikler",
+        "save": "Ayarları kaydet",
+        "saving": "Kaydediliyor...",
+        "fields": {
+            "ownerName": "Profil sahibinin adı",
+            "assistantName": "Asistanın adı",
+            "description": "Site açıklaması",
+            "avatarUrl": "Avatar URL’si",
+            "socialImageUrl": "Sosyal medya önizleme görselinin URL’si",
+            "ownerEmail": "Profil sahibinin e-postası",
+            "calendarUrl": "Takvim rezervasyon URL’si",
+            "linkedinUrl": "LinkedIn URL’si",
+            "tone": "Asistanın üslubu",
+            "managerEmail": "Yöneticinin e-postası (özel)",
+            "welcome": "Karşılama mesajı",
+            "examples": "Örnek sorular",
+            "vacation": "Tatil modu",
+            "returnDate": "Dönüş tarihi",
+            "funFacts": "İlginç bilgiler"
+        },
+        "examplesHelp": "Her satıra bir örnek soru yazın. Örnekleri gizlemek için boş bırakın.",
+        "removeFunFact": "İlginç bilgiyi kaldır",
+        "addFunFact": "İlginç bilgi ekle",
+        "analyticsTitle": "Kullanım istatistikleri (son 30 gün)",
+        "analyticsPrivacy": "Soruların ham metni ve ziyaretçilerin kimlik bilgileri saklanmaz. Oturum sayısı, farklı kişi sayısını göstermez.",
+        "refresh": "Yenile",
+        "analyticsLoading": "İstatistikler yükleniyor...",
+        "analyticsEmpty": "İstatistikleri yüklemek için Yenile’ye tıklayın.",
+        "loadAnalytics": "İstatistikleri yükle",
+        "analyticsError": "İstatistikler yüklenemedi. Lütfen tekrar deneyin.",
+        "metrics": {
+            "queries": "Toplam sorgu",
+            "sessions": "Oturumlar",
+            "responseTime": "Ortalama yanıt süresi",
+            "sessionDepth": "Ortalama oturum derinliği",
+            "examples": "Örneklere tıklanma oranı",
+            "highConfidence": "Yüksek güven düzeyi",
+            "lowConfidence": "Düşük güven düzeyi",
+            "errors": "Hatalar"
+        },
+        "confidenceTitle": "Güven düzeyi dağılımı",
+        "confidence": {
+            "high": "Yüksek",
+            "medium": "Orta",
+            "low": "Düşük",
+            "unknown": "Bilinmiyor"
+        },
+        "recentActivity": "Son etkinlikler",
+        "chatRequest": "Sohbet isteği",
+        "requestFailed": "Başarısız"
+    },
 
     "helpTexts": {
-        "promptTemplate":
-            "Soru ve arama sonuçlarına dayalı olarak cevabı oluşturmak için kullanılan prompt'u geçersiz kılar. Mevcut prompt'u genişletmek yerine tamamını değiştirmek için prompt'unuza '>>>' ile başlayın.",
-        "temperature":
-            "Cevabı oluşturan dil modeline yapılan isteğin sıcaklığını ayarlar. Daha yüksek sıcaklıklar daha yaratıcı cevaplar verir, ancak daha az gerçekçi olabilirler.",
+        "promptTemplate": "Soru ve arama sonuçlarına dayalı olarak cevabı oluşturmak için kullanılan prompt'u geçersiz kılar. Mevcut prompt'u genişletmek yerine tamamını değiştirmek için prompt'unuza '>>>' ile başlayın.",
+        "temperature": "Cevabı oluşturan dil modeline yapılan isteğin sıcaklığını ayarlar. Daha yüksek sıcaklıklar daha yaratıcı cevaplar verir, ancak daha az gerçekçi olabilirler.",
         "seed": "Modelin yanıtlarının tekrarlanabilirliğini artırmak için bir seed ayarlar. Seed herhangi bir tam sayı olabilir.",
-        "searchScore":
-             "Azure AI arama sonuçları için minimum skoru ayarlar. Skor aralığı, yalnızca vektörler, yalnızca metin veya hibrit (varsayılan) arama moduna bağlı olarak değişir.",
-        "rerankerScore":
-             "Anlamsal sıralayıcıdan gelen arama sonuçları için minimum skoru ayarlar. Skor her zaman 0-4 arasında değişir. Daha yüksek skor, sonucun soruya daha anlamsal olarak uygun olduğunu gösterir.",
-        "retrieveNumber":
-             "Azure AI arama sonuçlarından getirilecek sonuç sayısını ayarlar. Daha fazla sonuç doğru cevabı bulma olasılığını artırabilir, ancak modelin 'ortada kaybolmasına' da neden olabilir.",
-        "agenticReasoningEffort":
-            "Ajans, çoklu sorgu planları oluştururken ne kadar akıl yürütme uygulayacağını kontrol eder. Daha yüksek ayarlar hatırlamayı artırabilir ancak belirteçleri ve gecikmeyi yükseltir.",
-        "includeCategory":
-            "Arama sonuçlarına dahil edilecek bir kategoriyi belirtir. Varsayılan veri setinde kategori yoktur.",
-        "excludeCategory":
-            "Arama sonuçlarından hariç tutulacak bir kategoriyi belirtir. Varsayılan veri setinde kategori yoktur.",
-        "useSemanticReranker":
-            "Azure AI Arama anlamsal sıralayıcısını etkinleştirir, bu model arama sonuçlarını kullanıcının sorgusuna anlamsal benzerliğe göre sıralar.",
-        "useSemanticCaptions":
-            "Tam arama sonucu yerine anlamsal altyazıları dil modeline gönderir. Anlamsal sıralama sırasında her arama sonucu için bir anlamsal altyazı çıkarılır.",
-        "useQueryRewriting":
-            "Azure AI arama sonuçlarını iyileştirmek için kullanıcı sorgusunu değiştiren bir işlem. Anlamsal sıralayıcının etkin olmasını gerektirir.",
-        "reasoningEffort":
-            "Dil modeli için akıl yürütme çabasını ayarlar. Daha yüksek değerler daha fazla akıl yürütme ile sonuçlanır, ancak yanıt oluşturmak daha uzun sürebilir. Varsayılan orta seviyedir.",
+        "searchScore": "Azure AI arama sonuçları için minimum skoru ayarlar. Skor aralığı, yalnızca vektörler, yalnızca metin veya hibrit (varsayılan) arama moduna bağlı olarak değişir.",
+        "rerankerScore": "Anlamsal sıralayıcıdan gelen arama sonuçları için minimum skoru ayarlar. Skor her zaman 0-4 arasında değişir. Daha yüksek skor, sonucun soruya daha anlamsal olarak uygun olduğunu gösterir.",
+        "retrieveNumber": "Azure AI arama sonuçlarından getirilecek sonuç sayısını ayarlar. Daha fazla sonuç doğru cevabı bulma olasılığını artırabilir, ancak modelin 'ortada kaybolmasına' da neden olabilir.",
+        "agenticReasoningEffort": "Ajans, çoklu sorgu planları oluştururken ne kadar akıl yürütme uygulayacağını kontrol eder. Daha yüksek ayarlar hatırlamayı artırabilir ancak belirteçleri ve gecikmeyi yükseltir.",
+        "includeCategory": "Arama sonuçlarına dahil edilecek bir kategoriyi belirtir. Varsayılan veri setinde kategori yoktur.",
+        "excludeCategory": "Arama sonuçlarından hariç tutulacak bir kategoriyi belirtir. Varsayılan veri setinde kategori yoktur.",
+        "useSemanticReranker": "Azure AI Arama anlamsal sıralayıcısını etkinleştirir, bu model arama sonuçlarını kullanıcının sorgusuna anlamsal benzerliğe göre sıralar.",
+        "useSemanticCaptions": "Tam arama sonucu yerine anlamsal altyazıları dil modeline gönderir. Anlamsal sıralama sırasında her arama sonucu için bir anlamsal altyazı çıkarılır.",
+        "useQueryRewriting": "Azure AI arama sonuçlarını iyileştirmek için kullanıcı sorgusunu değiştiren bir işlem. Anlamsal sıralayıcının etkin olmasını gerektirir.",
+        "reasoningEffort": "Dil modeli için akıl yürütme çabasını ayarlar. Daha yüksek değerler daha fazla akıl yürütme ile sonuçlanır, ancak yanıt oluşturmak daha uzun sürebilir. Varsayılan orta seviyedir.",
         "suggestFollowupQuestions": "Kullanıcının sorusuna dayalı olarak dil modelinden takip soruları önermesini ister.",
         "textEmbeddings": "Seçildiğinde, arama çıkarılan metin parçalarının yalnızca metin gömme modelinden gömmeleri kullanacaktır.",
         "imageEmbeddings": "Seçildiğinde, arama çıkarılan görsellerin çoklu ortam gömme modelinden gömmeleri kullanacaktır.",
         "llmTextInputs": "Seçildiğinde, arama sonuçlarındaki metin içeriği bağlam olarak LLM'e gönderilir.",
         "llmImageInputs": "Seçildiğinde, arama sonuçlarındaki görseller bağlam olarak LLM'e gönderilir.",
-        "llmInputs":
-            "Vizyon modeline ne gönderileceğini ayarlar. 'Görseller ve metin' her ikisini de gönderir, 'Görseller' yalnızca görselleri, 'Metin' yalnızca metni gönderir.",
-        "retrievalMode":
-            "Azure AI arama sorgusu için getirme modunu ayarlar. `Vektörler + Metin (Hibrit)` vektör araması ve tam metin aramasını kullanır, `Vektörler` yalnızca vektör aramasını, `Metin` yalnızca tam metin aramasını kullanır. Hibrit genellikle en iyisidir.",
+        "llmInputs": "Vizyon modeline ne gönderileceğini ayarlar. 'Görseller ve metin' her ikisini de gönderir, 'Görseller' yalnızca görselleri, 'Metin' yalnızca metni gönderir.",
+        "retrievalMode": "Azure AI arama sorgusu için getirme modunu ayarlar. `Vektörler + Metin (Hibrit)` vektör araması ve tam metin aramasını kullanır, `Vektörler` yalnızca vektör aramasını, `Metin` yalnızca tam metin aramasını kullanır. Hibrit genellikle en iyisidir.",
         "streamChat": "Yanıt oluşturulurken sohbet arayüzüne gerçek zamanlı olarak yanıtı sürekli olarak gönderir.",
         "useOidSecurityFilter": "Kimliği doğrulanmış kullanıcının OID'sine göre arama sonuçlarını filtreler.",
         "useGroupsSecurityFilter": "Kimliği doğrulanmış kullanıcının gruplarına göre arama sonuçlarını filtreler.",
