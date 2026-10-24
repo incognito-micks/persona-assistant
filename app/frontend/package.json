@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@azure/msal-browser": "^4.16.0",
-    "@fluentui/react": "^8.112.5",
+    "@fluentui/react": "^8.125.8",
     "@fluentui/react-components": "^9.56.2",
     "@fluentui/react-icons": "^2.0.265",
     "@react-spring/web": "^9.7.5",
