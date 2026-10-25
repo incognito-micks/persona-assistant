@@ -49,10 +49,11 @@ export function OwnerPreview({ settings }: { settings: AdminSettings }) {
                         <p className={styles.helpText}>{t("admin.preview.examplesEmpty")}</p>
                     )}
                 </div>
-                {(settings.owner_email || settings.calendar_url || settings.linkedin_url) && (
+                {(settings.owner_email || settings.calendar_url || settings.mentorship_url || settings.linkedin_url) && (
                     <div className={styles.previewContacts}>
                         {settings.owner_email && <span>{t("profile.email")}</span>}
                         {settings.calendar_url && <span>{t("profile.calendar")}</span>}
+                        {settings.mentorship_url && <span>{t("profile.mentorship")}</span>}
                         {settings.linkedin_url && <span>{t("profile.linkedin")}</span>}
                     </div>
                 )}

@@ -156,6 +156,7 @@
         "avatar": "Awatar: {{owner}}",
         "email": "Wyślij e-mail do właściciela",
         "calendar": "Zarezerwuj rozmowę",
+        "mentorship": "Zarezerwuj mentoring",
         "linkedin": "LinkedIn",
         "vacation": "{{owner}} jest teraz poza biurem. Asystent AI służy pomocą.",
         "vacationUntil": "{{owner}} jest poza biurem do {{date}}. Asystent AI służy pomocą."
@@ -265,6 +266,7 @@
             "imageUnavailable": "Nie można wczytać podglądu awatara. Sprawdź jego adres URL.",
             "examplesEmpty": "Dodaj przykładowe pytanie, aby ułatwić odwiedzającym rozpoczęcie rozmowy."
         },
+        "mentorshipHelp": "Opcjonalny link HTTPS do mentoringu, niezależny od zwykłych rozmów. Pozostaw puste, aby go ukryć.",
         "fields": {
             "ownerName": "Imię i nazwisko właściciela",
             "assistantName": "Nazwa asystenta",
@@ -273,6 +275,7 @@
             "socialImageUrl": "Adres URL obrazu podglądu w mediach społecznościowych",
             "ownerEmail": "Adres e-mail właściciela",
             "calendarUrl": "Adres URL rezerwacji w kalendarzu",
+            "mentorshipUrl": "Adres URL rezerwacji mentoringu",
             "linkedinUrl": "Adres URL profilu LinkedIn",
             "tone": "Ton wypowiedzi asystenta",
             "managerEmail": "Adres e-mail alternatywnego kontaktu",

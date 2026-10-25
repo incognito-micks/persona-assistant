@@ -18,6 +18,27 @@ from error import PromptTooLargeError
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("mentorship_url", ["", "https://mentoring.example.test/current"])
+async def test_chat_uses_current_mentorship_profile_in_common_system_instructions(chat_approach, mentorship_url):
+    chat_approach.openai_client = AsyncMock()
+    extra_info, completion = await chat_approach.run_until_final_call(
+        [{"role": "user", "content": "How can I book mentorship?"}],
+        {},
+        {},
+        admin_settings={"mentorship_url": mentorship_url, "calendar_url": "https://calendar.example.test/general"},
+    )
+    await completion
+    system = chat_approach.openai_client.chat.completions.create.await_args.kwargs["messages"][0]["content"]
+    assert "https://calendar.example.test/general" in system
+    if mentorship_url:
+        assert f"Mentorship booking link: {mentorship_url}" in system
+        assert "dedicated link rather than the general calendar" in system
+    else:
+        assert "No mentorship booking link is configured" in system
+    assert extra_info.data_points.text
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("question", ["Tell me about your career", "hello", "thanks", "Can I contact you?"])
 async def test_chat_resolves_knowledge_dates_per_request_without_freezing_sources(chat_approach, monkeypatch, question):
     clock = Mock()

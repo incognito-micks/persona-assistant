@@ -167,6 +167,7 @@ def public_profile():
         "welcome_message": "Welcome! Ask about Alex's projects, experience, or availability.",
         "owner_email": "",
         "calendar_url": "",
+        "mentorship_url": "",
         "linkedin_url": "",
         "avatar_url": "/avatar.svg",
         "social_image_url": "/social-preview.png",
@@ -446,6 +447,7 @@ def test_home_accessibility(page: Page, live_server_url: str):
             "welcome_message": "Welcome to Alex's assistant.",
             "owner_email": "alex@example.test",
             "calendar_url": "https://calendar.example.test/alex",
+            "mentorship_url": "https://mentoring.example.test/alex",
             "linkedin_url": "https://www.linkedin.com/in/alex-example",
             "avatar_url": "/avatar.svg?persona=alex",
             "social_image_url": "/social-preview.png?persona=alex",
@@ -458,6 +460,7 @@ def test_home_accessibility(page: Page, live_server_url: str):
             "welcome_message": "Welcome to Jamie's creative practice.",
             "owner_email": "jamie@example.test",
             "calendar_url": "https://calendar.example.test/jamie?topic=design&duration=30",
+            "mentorship_url": "https://mentoring.example.test/jamie",
             "linkedin_url": "https://www.linkedin.com/in/jamie-example",
             "avatar_url": "/avatar.svg?persona=jamie",
             "social_image_url": "/social-preview.png?persona=jamie&mode=studio",
@@ -493,6 +496,7 @@ def test_profile_drives_public_ui_metadata_and_examples(
     for label, href in (
         ("Email the owner", f"mailto:{public_profile['owner_email']}"),
         ("Book a call", public_profile["calendar_url"]),
+        ("Book mentorship", public_profile["mentorship_url"]),
         ("LinkedIn", public_profile["linkedin_url"]),
     ):
         expect(page.get_by_role("link", name=label, exact=True)).to_have_attribute("href", href)
@@ -505,20 +509,38 @@ def test_profile_drives_public_ui_metadata_and_examples(
     )
 
 
-@pytest.mark.parametrize("available_link", ["none", "linkedin"])
-def test_optional_profile_links_are_omitted(page: Page, live_server_url: str, public_profile, available_link):
-    public_profile.update(example_questions=[], owner_email="", calendar_url="", linkedin_url="")
+@pytest.mark.parametrize("available_link", ["none", "linkedin", "mentorship", "legacy"])
+def test_optional_profile_links_are_omitted(
+    page: Page, live_server_url: str, public_profile, api_config, available_link
+):
+    api_config["showRealtimeVoice"] = True
+    public_profile.update(example_questions=[], owner_email="", calendar_url="", mentorship_url="", linkedin_url="")
     if available_link == "linkedin":
         public_profile["linkedin_url"] = "https://www.linkedin.com/in/fictional-owner"
+    elif available_link == "mentorship":
+        public_profile["mentorship_url"] = "https://mentoring.example.test/owner"
+    elif available_link == "legacy":
+        public_profile.pop("mentorship_url")
     page.goto(live_server_url)
     expect(page.get_by_role("heading", name=public_profile["assistant_name"], exact=True).last).to_be_visible()
     expect(page.get_by_role("link", name="Email the owner", exact=True)).to_have_count(0)
     expect(page.get_by_role("link", name="Book a call", exact=True)).to_have_count(0)
     expect(page.get_by_role("button", name="What projects have you worked on?", exact=True)).to_have_count(0)
-    expect(page.get_by_role("contentinfo")).to_have_count(1 if available_link == "linkedin" else 0)
+    expect(page.get_by_role("contentinfo")).to_have_count(1 if available_link in {"linkedin", "mentorship"} else 0)
     expect(page.get_by_role("link", name="LinkedIn", exact=True)).to_have_count(
         1 if available_link == "linkedin" else 0
     )
+    mentorship = page.get_by_role("link", name="Book mentorship", exact=True)
+    expect(mentorship).to_have_count(1 if available_link == "mentorship" else 0)
+    if available_link == "mentorship":
+        expect(mentorship).to_have_attribute("href", public_profile["mentorship_url"])
+        expect(mentorship).to_have_attribute("target", "_blank")
+        expect(mentorship).to_have_attribute("rel", "noopener noreferrer")
+        page.get_by_role("link", name="Try voice chat", exact=True).click()
+        expect(page.get_by_role("button", name="Start Voice Chat", exact=True)).to_be_visible()
+        expect(
+            page.get_by_role("contentinfo").get_by_role("link", name="Book mentorship", exact=True)
+        ).to_have_attribute("href", public_profile["mentorship_url"])
 
 
 def test_profile_failure_uses_neutral_fallback(page: Page, live_server_url: str):
@@ -1127,6 +1149,60 @@ def test_owner_workspace_draft_preview_and_discard(page: Page, live_server_url: 
     assert owner_settings["updates"] == []
 
 
+def test_owner_can_preview_save_and_remove_mentorship_without_changing_general_calendar(
+    page: Page, live_server_url: str, public_profile, owner_settings
+):
+    general = "https://calendar.example.test/general"
+    mentorship = "https://mentoring.example.test/owner"
+    public_profile["calendar_url"] = general
+    owner_settings["settings"]["calendar_url"] = general
+    page.route(
+        "**/api/status",
+        lambda route: route.fulfill(
+            json={
+                field: value
+                for field, value in owner_settings["settings"].items()
+                if field not in {"manager_email", "fun_facts"}
+            }
+        ),
+    )
+    page.goto(f"{live_server_url}#/admin")
+    page.get_by_role("button", name="Continue with Microsoft", exact=True).click()
+    field = page.get_by_label("Mentorship Booking URL", exact=True)
+    expect(field).to_have_value("")
+    expect(
+        page.get_by_text(
+            "Optional HTTPS link for mentorship, separate from general calls. Leave blank to hide it.", exact=True
+        )
+    ).to_be_visible()
+    preview = page.get_by_role("complementary", name="Visitor preview", exact=True)
+    expect(preview.get_by_text("Book mentorship", exact=True)).to_have_count(0)
+    field.fill(mentorship)
+    expect(preview.get_by_text("Book mentorship", exact=True)).to_be_visible()
+    expect(preview.get_by_role("link", name="Book mentorship", exact=True)).to_have_count(0)
+    expect(page.get_by_label("Calendar Booking URL", exact=True)).to_have_value(general)
+    assert public_profile["mentorship_url"] == "" and owner_settings["updates"] == []
+    page.get_by_role("button", name="Discard changes", exact=True).click()
+    expect(field).to_have_value("")
+    expect(preview.get_by_text("Book mentorship", exact=True)).to_have_count(0)
+    field.fill(mentorship)
+    page.get_by_role("button", name="Save changes", exact=True).click()
+    expect(page.get_by_text("Changes saved. Your assistant is up to date.", exact=True)).to_be_visible()
+    assert owner_settings["updates"] == [{"mentorship_url": mentorship}]
+    assert owner_settings["settings"]["calendar_url"] == general
+    field.fill("")
+    page.get_by_role("button", name="Save changes", exact=True).click()
+    expect(page.get_by_text("Changes saved. Your assistant is up to date.", exact=True)).to_be_visible()
+    assert owner_settings["updates"] == [{"mentorship_url": mentorship}, {"mentorship_url": ""}]
+    expect(preview.get_by_text("Book mentorship", exact=True)).to_have_count(0)
+    expect(page.get_by_label("Calendar Booking URL", exact=True)).to_have_value(general)
+    page.get_by_role("banner").get_by_role("link", name="Back to assistant", exact=True).click()
+    expect(page.get_by_role("contentinfo").get_by_role("link", name="Book a call", exact=True)).to_have_attribute(
+        "href", general
+    )
+    expect(page.get_by_role("link", name="Book mentorship", exact=True)).to_have_count(0)
+
+
 def test_owner_workspace_guards_navigation_without_saving(page: Page, live_server_url: str, owner_settings):
     page.goto(f"{live_server_url}#/admin")
     page.get_by_role("button", name="Continue with Microsoft", exact=True).click()
@@ -1704,8 +1780,8 @@ def open_saved_answer(page: Page, live_server_url: str, api_config, response=Non
 
 def click_contact_links(page: Page) -> None:
     footer = page.get_by_role("contentinfo")
-    for name in ("Email the owner", "Book a call", "LinkedIn"):
-        link = footer.get_by_role("link", name=name, exact=True)
+    for link in footer.get_by_role("link").all():
+        name = link.inner_text()
         expect(link).to_be_visible()
         assert link.evaluate("""element => {
             const bounds = element.getBoundingClientRect();
@@ -1716,7 +1792,7 @@ def click_contact_links(page: Page) -> None:
         assert page.evaluate("window.footerClicks.length") == before + 1
 
 
-@pytest.mark.parametrize(("width", "height"), [(1280, 900), (1024, 600), (390, 844), (844, 390)])
+@pytest.mark.parametrize(("width", "height"), [(1280, 900), (1024, 600), (390, 844), (844, 390), (320, 568)])
 @pytest.mark.parametrize("streaming", [True, False], ids=["streaming", "nonstreaming"])
 def test_footer_links_remain_clickable_with_long_conversations(
     page: Page, live_server_url: str, api_config, public_profile, pending_chat_stream, width, height, streaming
@@ -1725,6 +1801,7 @@ def test_footer_links_remain_clickable_with_long_conversations(
     public_profile.update(
         owner_email="owner@example.test",
         calendar_url="https://calendar.example.test/book",
+        mentorship_url="https://mentoring.example.test/book",
         linkedin_url="https://social.example.test/owner",
     )
     page.set_viewport_size({"width": width, "height": height})
@@ -1738,7 +1815,15 @@ def test_footer_links_remain_clickable_with_long_conversations(
     )
     mock_chat(page, [chat_response(answer)])
     page.goto(live_server_url)
-    expect(page.get_by_role("contentinfo").get_by_role("link")).to_have_count(3)
+    footer = page.get_by_role("contentinfo")
+    expect(footer.get_by_role("link")).to_have_count(4)
+    expect(footer.get_by_role("link", name="Book mentorship", exact=True)).to_have_attribute(
+        "href", public_profile["mentorship_url"]
+    )
+    if width == 320:
+        assert footer.get_by_role("link").evaluate_all(
+            "links => new Set(links.map(link => Math.round(link.getBoundingClientRect().top))).size > 1"
+        )
     click_contact_links(page)
     send_question(page)
     if streaming:

@@ -138,6 +138,50 @@ async def test_settings_reads_persisted_document(admin_app_factory, route):
 
 
 @pytest.mark.asyncio
+async def test_mentorship_profile_default_persisted_update_and_clear_preserve_general_contacts(
+    admin_app_factory, settings_container
+):
+    settings_container.document.pop("mentorship_url", None)
+    settings_container.document["calendar_url"] = "https://calendar.example.test/general"
+    settings_container.document["owner_email"] = "owner@example.test"
+    app = admin_app_factory(container=settings_container)
+    app.config[settings_cosmosdb.CONFIG_PROFILE] = {"mentorship_url": "https://mentoring.example.test/profile-default"}
+    client = app.test_client()
+
+    for route in ("/api/admin/settings", "/api/status"):
+        response = await client.get(route)
+        assert response.status_code == 200
+        assert (await response.get_json())["mentorship_url"] == "https://mentoring.example.test/profile-default"
+
+    for value in ("https://mentoring.example.test/updated", ""):
+        previous = await (await client.get("/api/admin/settings")).get_json()
+        response = await client.put("/api/admin/settings", json={"mentorship_url": value})
+        assert response.status_code == 200
+        payload = await response.get_json()
+        assert payload == previous | {"mentorship_url": value}
+        assert payload["mentorship_url"] == value
+        assert payload["calendar_url"] == "https://calendar.example.test/general"
+        assert payload["owner_email"] == "owner@example.test"
+        assert settings_container.document["mentorship_url"] == value
+        public = await (await client.get("/api/status")).get_json()
+        assert public["mentorship_url"] == value
+        assert "manager_email" not in public and "fun_facts" not in public
+    assert settings_container.replace_item.await_count == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "value", ["http://example.test", "javascript:alert(1)", "//example.test/book", "https://user:secret@example.test"]
+)
+async def test_invalid_mentorship_url_is_rejected_before_storage(admin_app_factory, settings_container, value):
+    app = admin_app_factory(container=settings_container)
+    response = await app.test_client().put("/api/admin/settings", json={"mentorship_url": value})
+    assert response.status_code == 400
+    settings_container.read_item.assert_not_awaited()
+    settings_container.replace_item.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_get_current_settings_fallback_is_sanitized_and_independent(admin_app_factory):
     app = admin_app_factory(
         settings={"manager_email": "manager@example.com", "fun_facts": ["A fact"], "_etag": "private"}

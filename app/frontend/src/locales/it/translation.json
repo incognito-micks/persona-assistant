@@ -154,6 +154,7 @@
         "avatar": "Avatar di {{owner}}",
         "email": "Invia un’e-mail al proprietario",
         "calendar": "Prenota una chiamata",
+        "mentorship": "Prenota mentoring",
         "linkedin": "LinkedIn",
         "vacation": "{{owner}} al momento non è disponibile. Il suo assistente IA è qui per aiutarti.",
         "vacationUntil": "{{owner}} non sarà disponibile fino al {{date}}. Il suo assistente IA è qui per aiutarti."
@@ -263,6 +264,7 @@
             "imageUnavailable": "Impossibile caricare l’anteprima dell’avatar. Controlla il suo URL.",
             "examplesEmpty": "Aggiungi una domanda di esempio per aiutare i visitatori a iniziare."
         },
+        "mentorshipHelp": "Link HTTPS facoltativo per il mentoring, separato dalle chiamate generali. Lascia vuoto per nasconderlo.",
         "fields": {
             "ownerName": "Nome del proprietario",
             "assistantName": "Nome dell’assistente",
@@ -271,6 +273,7 @@
             "socialImageUrl": "URL dell’immagine di anteprima per i social",
             "ownerEmail": "E-mail del proprietario",
             "calendarUrl": "URL di prenotazione del calendario",
+            "mentorshipUrl": "URL di prenotazione mentoring",
             "linkedinUrl": "URL di LinkedIn",
             "tone": "Tono dell’assistente",
             "managerEmail": "E-mail di contatto alternativo",

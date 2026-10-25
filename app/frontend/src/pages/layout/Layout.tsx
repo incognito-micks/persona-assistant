@@ -18,6 +18,7 @@ const Layout = () => {
     const contacts = [
         publicStatus?.owner_email ? { href: `mailto:${publicStatus.owner_email}`, label: t("profile.email") } : null,
         publicStatus?.calendar_url ? { href: publicStatus.calendar_url, label: t("profile.calendar") } : null,
+        publicStatus?.mentorship_url ? { href: publicStatus.mentorship_url, label: t("profile.mentorship") } : null,
         publicStatus?.linkedin_url ? { href: publicStatus.linkedin_url, label: t("profile.linkedin") } : null
     ].filter((contact): contact is { href: string; label: string } => contact !== null);
 

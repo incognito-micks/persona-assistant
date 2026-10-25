@@ -154,6 +154,7 @@
         "avatar": "Avatar van {{owner}}",
         "email": "E-mail de eigenaar",
         "calendar": "Plan een gesprek",
+        "mentorship": "Mentorschap boeken",
         "linkedin": "LinkedIn",
         "vacation": "{{owner}} is momenteel afwezig. De AI-assistent staat klaar om je te helpen.",
         "vacationUntil": "{{owner}} is afwezig tot {{date}}. De AI-assistent staat klaar om je te helpen."
@@ -263,6 +264,7 @@
             "imageUnavailable": "Het voorbeeld van de avatar kon niet worden geladen. Controleer de URL.",
             "examplesEmpty": "Voeg een voorbeeldvraag toe om bezoekers op weg te helpen."
         },
+        "mentorshipHelp": "Optionele HTTPS-link voor mentorschap, los van algemene gesprekken. Laat leeg om de link te verbergen.",
         "fields": {
             "ownerName": "Naam van de eigenaar",
             "assistantName": "Naam van de assistent",
@@ -271,6 +273,7 @@
             "socialImageUrl": "URL van de voorbeeldafbeelding voor sociale media",
             "ownerEmail": "E-mailadres van de eigenaar",
             "calendarUrl": "URL voor agendaboekingen",
+            "mentorshipUrl": "Boekings-URL voor mentorschap",
             "linkedinUrl": "LinkedIn-URL",
             "tone": "Toon van de assistent",
             "managerEmail": "E-mailadres van alternatief contact",

@@ -676,6 +676,7 @@ function Admin() {
                                         [
                                             ["owner_email", "ownerEmail"],
                                             ["calendar_url", "calendarUrl"],
+                                            ["mentorship_url", "mentorshipUrl"],
                                             ["linkedin_url", "linkedinUrl"]
                                         ] as const
                                     ).map(([field, label]) => (
@@ -683,6 +684,7 @@ function Admin() {
                                             key={field}
                                             disabled={fieldsDisabled}
                                             label={t(`admin.fields.${label}`)}
+                                            description={field === "mentorship_url" ? t("admin.mentorshipHelp") : undefined}
                                             value={settings[field]}
                                             onChange={(_, value) => updateField(field, value || "")}
                                         />

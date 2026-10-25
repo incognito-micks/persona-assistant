@@ -30,6 +30,7 @@ def test_profile_loads_validated_partial_configuration_without_mutating_defaults
     profile = load_profile(str(source))
     assert profile["owner_name"] == "Jamie Example"
     assert profile["avatar_url"] == "/avatar.svg"
+    assert profile["mentorship_url"] == ""
     profile["fun_facts"].append("New fact")
     assert DEFAULT_PROFILE == original
 
@@ -46,6 +47,21 @@ def test_profile_loads_validated_partial_configuration_without_mutating_defaults
         {"avatar_url": "/../private"},
         {"social_image_url": "https://user:password@example.com/image"},
         {"linkedin_url": "http://example.com"},
+        *[
+            {"mentorship_url": value}
+            for value in [
+                "http://example.com",
+                "javascript:alert(1)",
+                "//example.com/book",
+                "/book",
+                "https://user:secret@example.com/book",
+                "https://example.com/book now",
+                "https://example.com/\nbook",
+                "https://example.com\\book",
+                "https://",
+                None,
+            ]
+        ],
         {"example_questions": []},
         {"example_questions": [""]},
         {"example_questions": ["Question"] * 9},
@@ -96,12 +112,14 @@ async def test_profile_precedence_defaults_then_file_then_persisted_fields():
         "owner_name": "File Owner",
         "assistant_name": "File Assistant",
         "example_questions": ["A configured example?"],
+        "mentorship_url": "https://mentoring.example.test/from-profile",
     }
     application.config[CONFIG_ADMIN_SETTINGS_CACHE] = {}
     async with application.app_context():
         settings = await get_current_settings()
         assert settings["owner_name"] == "File Owner"
         assert settings["assistant_name"] == "File Assistant"
+        assert settings["mentorship_url"] == "https://mentoring.example.test/from-profile"
         application.config[CONFIG_COSMOS_SETTINGS_CONTAINER] = Mock(
             read_item=AsyncMock(return_value={"id": "admin_settings", "owner_name": "Persisted Owner"})
         )
@@ -109,6 +127,12 @@ async def test_profile_precedence_defaults_then_file_then_persisted_fields():
         assert settings["owner_name"] == "Persisted Owner"
         assert settings["assistant_name"] == "File Assistant"
         assert settings["example_questions"] == ["A configured example?"]
+        assert settings["mentorship_url"] == "https://mentoring.example.test/from-profile"
+        application.config[CONFIG_COSMOS_SETTINGS_CONTAINER].read_item.return_value = {
+            "id": "admin_settings",
+            "mentorship_url": "",
+        }
+        assert (await get_current_settings())["mentorship_url"] == ""
 
 
 def test_persona_text_is_shared_and_explicit_about_ai_identity():
@@ -134,9 +158,26 @@ def test_profile_accepts_safe_optional_links_and_returns_independent_data():
     values = {
         "owner_email": "",
         "calendar_url": "",
+        "mentorship_url": "https://mentoring.example.test/book?topic=architecture",
         "avatar_url": "https://example.com/avatar.svg",
         "fun_facts": ["Fact"],
     }
     validated = validate_profile_update(values)
     validated["fun_facts"].append("Other")
     assert values["fun_facts"] == ["Fact"]
+
+
+@pytest.mark.parametrize("mentorship_url", ["", "https://mentoring.example.test/book"])
+def test_persona_routes_mentorship_without_overwriting_general_booking(mentorship_url):
+    instructions = build_persona_instructions(
+        {"mentorship_url": mentorship_url, "calendar_url": "https://calendar.example.test/general"}
+    )
+    assert "Booking link: https://calendar.example.test/general" in instructions
+    if mentorship_url:
+        assert f"Mentorship booking link: {mentorship_url}" in instructions
+        assert "dedicated link rather than the general calendar" in instructions
+        assert "pricing, and availability" in instructions
+        assert "do not invent these details or claim to have booked a session" in instructions
+    else:
+        assert "No mentorship booking link is configured" in instructions
+        assert "Do not invent or reuse a historical mentorship URL" in instructions

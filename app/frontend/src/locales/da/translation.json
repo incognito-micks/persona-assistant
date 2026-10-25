@@ -150,6 +150,7 @@
         "avatar": "Avatar for {{owner}}",
         "email": "Send en e-mail til ejeren",
         "calendar": "Book en samtale",
+        "mentorship": "Book mentorforløb",
         "linkedin": "LinkedIn",
         "vacation": "{{owner}} er i øjeblikket fraværende. AI-assistenten er her for at hjælpe.",
         "vacationUntil": "{{owner}} er fraværende indtil {{date}}. AI-assistenten er her for at hjælpe."
@@ -259,6 +260,7 @@
             "imageUnavailable": "Avataren kunne ikke indlæses i forhåndsvisningen. Kontrollér dens URL.",
             "examplesEmpty": "Tilføj et eksempelspørgsmål for at hjælpe besøgende i gang."
         },
+        "mentorshipHelp": "Valgfrit HTTPS-link til mentoring, adskilt fra almindelige samtaler. Lad feltet være tomt for at skjule det.",
         "fields": {
             "ownerName": "Ejerens navn",
             "assistantName": "Assistentens navn",
@@ -267,6 +269,7 @@
             "socialImageUrl": "URL til forhåndsvisningsbillede på sociale medier",
             "ownerEmail": "Ejerens e-mail",
             "calendarUrl": "URL til booking i kalenderen",
+            "mentorshipUrl": "URL til booking af mentoring",
             "linkedinUrl": "LinkedIn-URL",
             "tone": "Assistentens tone",
             "managerEmail": "E-mail til alternativ kontakt",

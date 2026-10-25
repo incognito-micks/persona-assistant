@@ -45,6 +45,8 @@ When browser history is enabled, desktop history appears beside the conversation
 
 Conversation and history scroll independently. The composer and public contact links occupy their own layout space rather than covering one another. If browser storage fails, the received reply stays on screen and the UI reports that history could not be saved.
 
+An optional **Book mentorship** footer link is configured with `mentorship_url` in the profile or owner workspace. It is distinct from the general calendar link, remains available during chat and voice, and is hidden when blank. See [mentorship configuration](docs/personalization-and-packaging.md#optional-mentorship-booking).
+
 ## Owner Usage
 
 The owner workspace's **Usage** tab loads recorded text-chat activity for the last 30 days: requests, anonymous conversation sessions, average request duration, suggested-question use, failures, daily activity in UTC, and the latest 20 operational records. Sessions are not unique people. Durations include the complete streamed reply, not time to first token; rejected requests are not counted.

@@ -154,6 +154,7 @@
         "avatar": "{{owner}} için avatar",
         "email": "Profil sahibine e-posta gönder",
         "calendar": "Görüşme planla",
+        "mentorship": "Mentorluk planla",
         "linkedin": "LinkedIn",
         "vacation": "{{owner}} şu anda müsait değil. Yapay zekâ asistanı size yardımcı olmak için burada.",
         "vacationUntil": "{{owner}}, {{date}} tarihine kadar müsait değil. Yapay zekâ asistanı size yardımcı olmak için burada."
@@ -263,6 +264,7 @@
             "imageUnavailable": "Avatar önizlemesi yüklenemedi. URL’sini kontrol edin.",
             "examplesEmpty": "Ziyaretçilerin başlamasına yardımcı olmak için bir örnek soru ekleyin."
         },
+        "mentorshipHelp": "Genel görüşmelerden ayrı, mentorluk için isteğe bağlı HTTPS bağlantısı. Gizlemek için boş bırakın.",
         "fields": {
             "ownerName": "Profil sahibinin adı",
             "assistantName": "Asistanın adı",
@@ -271,6 +273,7 @@
             "socialImageUrl": "Sosyal medya önizleme görselinin URL’si",
             "ownerEmail": "Profil sahibinin e-postası",
             "calendarUrl": "Takvim rezervasyon URL’si",
+            "mentorshipUrl": "Mentorluk rezervasyon URL’si",
             "linkedinUrl": "LinkedIn URL’si",
             "tone": "Asistanın üslubu",
             "managerEmail": "Alternatif iletişim e-postası",

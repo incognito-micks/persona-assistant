@@ -113,6 +113,7 @@ export type PublicStatus = {
     welcome_message: string;
     owner_email: string;
     calendar_url: string;
+    mentorship_url: string;
     assistant_name: string;
     site_description: string;
     avatar_url: string;

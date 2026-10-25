@@ -45,6 +45,7 @@ Preserve unrelated staged/working changes and respect delegated file ownership. 
 - Do not remove existing analytics/settings or migrate personal data without explicit authorization.
 - Keep historical Cosmos-history ordering/batch/input-validation protections if touching retained compatibility code.
 - Do not add a provider/hosting/feature-toggle matrix. Profile fields and internal deployment outputs should not become mandatory user environment variables.
+- Mentorship booking is an optional validated HTTPS profile field, separate from the general calendar. Keep owner editing/preview, public footer, localization and text/voice instructions aligned; an empty saved value disables the link. Never hard-code a personal provider URL in shared UI or quote unconfigured pricing/availability.
 
 ## Packaging And Privacy
 

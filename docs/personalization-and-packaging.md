@@ -12,6 +12,14 @@ The profile validator rejects unknown fields, malformed values, unsafe image/lin
 
 The markdown loader sorts filenames, skips empty files, and formats each source with a filename label. It fails for missing, empty, or unreadable required knowledge. Nested files and non-markdown content are not ingested.
 
+## Optional Mentorship Booking
+
+Set `mentorship_url` in your profile or the owner workspace's **Mentorship Booking URL** field to an HTTPS booking/profile page. It is separate from `calendar_url`, which remains the general professional-call link. No provider integration, embedded widget, or new environment variable is needed.
+
+When configured, **Book mentorship** appears in the persistent visitor footer and the owner's local draft preview. Clearing the field hides the footer link; an explicitly saved empty value overrides the packaged default. Existing profiles/settings without the field use the empty default or the selected profile value, with no storage migration.
+
+Text and voice instructions use the current mentorship URL, distinguish it from the general calendar, and refer visitors to the destination for current offerings, pricing, and availability. Keep mentorship topics in approved knowledge, but avoid duplicating a static booking address there: an old URL must not override current owner settings. The assistant cannot book sessions or promise outcomes.
+
 ## Time-Sensitive Knowledge
 
 Trusted markdown supports `[[today]]` for the current UTC date and `[[elapsed:YYYY-MM]]` for a calendar-month duration. For example, `Experience since March 2019: approximately [[elapsed:2019-03]], as of [[today]].` Use "approximately" when the exact start day is unknown. Overlapping roles must not be added together.

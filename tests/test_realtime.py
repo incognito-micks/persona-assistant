@@ -999,6 +999,20 @@ async def test_upstream_setup_failures_refund_voice_admission(realtime_app, fail
     assert realtime_app.app.config[VOICE_USAGE_LOCAL_KEY].record["leases"] == {}
 
 
+@pytest.mark.parametrize("mentorship_url", ["", "https://mentoring.example.test/current"])
+def test_voice_uses_current_mentorship_booking_and_preserves_general_calendar(mentorship_url):
+    instructions = relay.build_system_instructions(
+        {"mentorship_url": mentorship_url, "calendar_url": "https://calendar.example.test/general"}, ["Knowledge"]
+    )
+    assert "https://calendar.example.test/general" in instructions
+    if mentorship_url:
+        assert f"Mentorship booking link: {mentorship_url}" in instructions
+        assert "dedicated link rather than the general calendar" in instructions
+        assert "do not invent these details or claim to have booked a session" in instructions
+    else:
+        assert "No mentorship booking link is configured" in instructions
+
+
 def test_voice_resolves_knowledge_dates_for_each_session_and_budgets_rendered_text(monkeypatch):
     clock = Mock()
     monkeypatch.setattr(knowledgebase, "datetime", clock)

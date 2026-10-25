@@ -185,6 +185,7 @@
         "avatar": "{{owner}}'s avatar",
         "email": "Email the owner",
         "calendar": "Book a call",
+        "mentorship": "Book mentorship",
         "linkedin": "LinkedIn",
         "vacation": "{{owner}} is currently away. Their AI assistant is here to help.",
         "vacationUntil": "{{owner}} is currently away until {{date}}. Their AI assistant is here to help."
@@ -294,6 +295,7 @@
             "imageUnavailable": "The avatar preview could not load. Check its URL.",
             "examplesEmpty": "Add an example question to help visitors get started."
         },
+        "mentorshipHelp": "Optional HTTPS link for mentorship, separate from general calls. Leave blank to hide it.",
         "fields": {
             "ownerName": "Owner Name",
             "assistantName": "Assistant Name",
@@ -302,6 +304,7 @@
             "socialImageUrl": "Social Preview Image URL",
             "ownerEmail": "Owner Email",
             "calendarUrl": "Calendar Booking URL",
+            "mentorshipUrl": "Mentorship Booking URL",
             "linkedinUrl": "LinkedIn URL",
             "tone": "Assistant Tone",
             "managerEmail": "Alternate Contact Email",

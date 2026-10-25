@@ -154,6 +154,7 @@
         "avatar": "{{owner}} のアバター",
         "email": "所有者にメールを送る",
         "calendar": "通話を予約する",
+        "mentorship": "メンタリングを予約",
         "linkedin": "LinkedIn",
         "vacation": "現在、{{owner}} は不在です。AIアシスタントがお手伝いします。",
         "vacationUntil": "{{owner}} は {{date}} まで不在です。AIアシスタントがお手伝いします。"
@@ -263,6 +264,7 @@
             "imageUnavailable": "アバターのプレビューを読み込めませんでした。URLを確認してください。",
             "examplesEmpty": "訪問者が会話を始めやすいように、質問の例を追加してください。"
         },
+        "mentorshipHelp": "メンタリング用の任意のHTTPSリンクです。一般的な通話予約とは別です。空欄にすると非表示になります。",
         "fields": {
             "ownerName": "所有者名",
             "assistantName": "アシスタント名",
@@ -271,6 +273,7 @@
             "socialImageUrl": "SNSプレビュー画像のURL",
             "ownerEmail": "所有者のメールアドレス",
             "calendarUrl": "予定予約用のURL",
+            "mentorshipUrl": "メンタリング予約用のURL",
             "linkedinUrl": "LinkedInのURL",
             "tone": "アシスタントの口調",
             "managerEmail": "代替連絡先のメールアドレス",

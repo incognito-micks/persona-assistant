@@ -15,6 +15,7 @@ DEFAULT_PROFILE: dict[str, Any] = {
     "owner_email": "",
     "manager_email": "",
     "calendar_url": "",
+    "mentorship_url": "",
     "linkedin_url": "",
     "tone": "Warm, clear, and professional.",
     "example_questions": [
@@ -37,6 +38,7 @@ PROFILE_TEXT_LIMITS = {
     "owner_email": 254,
     "manager_email": 254,
     "calendar_url": 2048,
+    "mentorship_url": 2048,
     "linkedin_url": 2048,
     "tone": 1000,
 }
@@ -81,7 +83,7 @@ def validate_profile_update(value: Any) -> dict[str, Any]:
                 raise ValueError(f"{field} must be a string of at most {PROFILE_TEXT_LIMITS[field]} characters")
             if field in {"owner_name", "assistant_name", "site_description", "tone"} and not item.strip():
                 raise ValueError(f"{field} must not be empty")
-            if field in {"avatar_url", "social_image_url", "calendar_url", "linkedin_url"} and item:
+            if field in {"avatar_url", "social_image_url", "calendar_url", "mentorship_url", "linkedin_url"} and item:
                 parsed_url = urlsplit(item)
                 local_image = (
                     field in {"avatar_url", "social_image_url"} and item.startswith("/") and not item.startswith("//")
@@ -135,6 +137,18 @@ def build_persona_instructions(settings: dict[str, Any]) -> str:
         instructions += f"\nOwner contact: {profile['owner_email']}\n"
     if profile["calendar_url"]:
         instructions += f"Booking link: {profile['calendar_url']}\n"
+    if profile["mentorship_url"]:
+        instructions += (
+            f"Mentorship booking link: {profile['mentorship_url']}\n"
+            "For mentorship enquiries and sessions, use this dedicated link rather than the general calendar. "
+            "Refer visitors to the mentorship page for current offerings, pricing, and availability; "
+            "do not invent these details or claim to have booked a session.\n"
+        )
+    else:
+        instructions += (
+            "No mentorship booking link is configured. Do not invent or reuse a historical mentorship URL; "
+            "use available general contact channels for enquiries.\n"
+        )
     if profile["vacation_mode"]:
         instructions += "\nThe owner is currently on vacation"
         if profile["vacation_return_date"]:

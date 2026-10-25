@@ -154,6 +154,7 @@
         "avatar": "Avatar de {{owner}}",
         "email": "Enviar e-mail ao proprietário",
         "calendar": "Agendar uma chamada",
+        "mentorship": "Agendar mentoria",
         "linkedin": "LinkedIn",
         "vacation": "{{owner}} está ausente no momento. O assistente de IA está aqui para ajudar.",
         "vacationUntil": "{{owner}} estará ausente até {{date}}. O assistente de IA está aqui para ajudar."
@@ -263,6 +264,7 @@
             "imageUnavailable": "Não foi possível carregar a prévia do avatar. Verifique a URL.",
             "examplesEmpty": "Adicione uma pergunta de exemplo para ajudar os visitantes a começar."
         },
+        "mentorshipHelp": "Link HTTPS opcional para mentoria, separado das chamadas gerais. Deixe em branco para ocultá-lo.",
         "fields": {
             "ownerName": "Nome do proprietário",
             "assistantName": "Nome do assistente",
@@ -271,6 +273,7 @@
             "socialImageUrl": "URL da imagem de prévia para redes sociais",
             "ownerEmail": "E-mail do proprietário",
             "calendarUrl": "URL de agendamento do calendário",
+            "mentorshipUrl": "URL de agendamento de mentoria",
             "linkedinUrl": "URL do LinkedIn",
             "tone": "Tom do assistente",
             "managerEmail": "E-mail de contato alternativo",

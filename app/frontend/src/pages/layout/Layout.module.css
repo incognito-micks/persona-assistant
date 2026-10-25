@@ -114,6 +114,7 @@
 }
 
 .contactLink {
+    white-space: nowrap;
     color: var(--app-focus);
     font-size: max(0.8rem, 12px);
     text-decoration: none;
