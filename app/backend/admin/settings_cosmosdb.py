@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 import time
 from copy import deepcopy
@@ -160,127 +161,73 @@ async def get_admin_analytics(auth_claims: dict[str, Any]):
         return error_response(error, "/api/admin/analytics")
 
 
-def _empty_analytics() -> dict:
-    return {
-        "total_queries": 0,
-        "avg_response_time_ms": 0,
-        "queries_by_day": [],
-        "confidence_distribution": {"high": 0, "medium": 0, "low": 0, "unknown": 0},
-        "recent_queries": [],
-        "unique_users": 0,
-        "example_question_rate": 0,
-        "avg_session_depth": 0,
-        "error_count": 0,
-    }
-
-
 async def compute_analytics_summary(container: ContainerProxy, since: int, until: int) -> dict[str, Any]:
+    if since > until:
+        raise ValueError("Usage reporting window is invalid")
     parameters = [{"name": "@since", "value": since}, {"name": "@until", "value": until}]
-    totals = None
-    async for row in container.query_items(
+    day_ms = 86400 * 1000
+    counts_by_day = dict.fromkeys(range(since // day_ms, until // day_ms + 1), 0)
+    sessions: set[str] = set()
+    total = 0
+    response_time_total = 0.0
+    example_count = 0
+    error_count = 0
+    recent_activity: list[dict[str, Any]] = []
+
+    # Use a plain projection; the deployed async client rejects the previous aggregate query.
+    # Page only operational fields; keep daily/session summaries and the latest 20 records.
+    async for item in container.query_items(
         query=(
-            "SELECT COUNT(1) AS total_queries, AVG(c.response_time_ms) AS avg_response_time_ms, "
-            "SUM(IIF(c.is_example_question = true, 1, 0)) AS example_count, "
-            'SUM(IIF(IS_STRING(c.error) AND c.error != "", 1, 0)) AS error_count, '
-            'SUM(IIF(c.confidence_level = "high", 1, 0)) AS high, '
-            'SUM(IIF(c.confidence_level = "medium", 1, 0)) AS medium, '
-            'SUM(IIF(c.confidence_level = "low", 1, 0)) AS low '
+            "SELECT c.timestamp, c.response_time_ms, c.session_id, c.error, c.is_example_question "
             "FROM c WHERE c.timestamp >= @since AND c.timestamp <= @until"
         ),
         parameters=parameters,
-        max_item_count=1,
-    ):
-        if totals is not None:
-            raise ValueError("Analytics totals query returned multiple rows")
-        totals = row
-    if totals is None:
-        raise ValueError("Analytics totals query returned no aggregate")
-    total = totals["total_queries"]
-    if total == 0:
-        return _empty_analytics()
-
-    queries_by_day = []
-    async for row in container.query_items(
-        query=(
-            "SELECT FLOOR(c.timestamp / 86400000) AS day, COUNT(1) AS count "
-            "FROM c WHERE c.timestamp >= @since AND c.timestamp <= @until GROUP BY FLOOR(c.timestamp / 86400000)"
-        ),
-        parameters=parameters,
-        max_item_count=32,
-    ):
-        queries_by_day.append(
-            {
-                "date": datetime.fromtimestamp(row["day"] * 86400, UTC).strftime("%Y-%m-%d"),
-                "count": row["count"],
-            }
-        )
-
-    unique_users = 0
-    async for user_oid in container.query_items(
-        query=(
-            "SELECT VALUE c.user_oid FROM c WHERE c.timestamp >= @since AND c.timestamp <= @until "
-            'AND IS_STRING(c.user_oid) AND c.user_oid != "" '
-            "GROUP BY c.user_oid"
-        ),
-        parameters=parameters,
         max_item_count=100,
     ):
-        if not isinstance(user_oid, str) or not user_oid:
-            raise ValueError("Analytics users query returned an invalid identity")
-        unique_users += 1
-
-    session_count = 0
-    total_depth = 0
-    async for row in container.query_items(
-        query=(
-            "SELECT MAX(IIF(IS_NUMBER(c.message_index), c.message_index, 1)) AS depth "
-            "FROM c WHERE c.timestamp >= @since AND c.timestamp <= @until "
-            'AND IS_STRING(c.session_id) AND c.session_id != "" '
-            "GROUP BY c.session_id"
-        ),
-        parameters=parameters,
-        max_item_count=100,
-    ):
-        session_count += 1
-        total_depth += row["depth"]
-
-    recent_queries = []
-    async for item in container.query_items(
-        query=(
-            "SELECT TOP 20 c.query, c.confidence_level, c.response_time_ms, c.timestamp, c.error, "
-            "c.is_example_question, c.message_index "
-            "FROM c WHERE c.timestamp >= @since AND c.timestamp <= @until ORDER BY c.timestamp DESC"
-        ),
-        parameters=parameters,
-        max_item_count=20,
-    ):
-        recent_queries.append(
+        timestamp = item.get("timestamp")
+        response_time = item.get("response_time_ms")
+        if (
+            not isinstance(timestamp, int)
+            or isinstance(timestamp, bool)
+            or not since <= timestamp <= until
+            or not isinstance(response_time, (int, float))
+            or isinstance(response_time, bool)
+            or not math.isfinite(response_time)
+            or response_time < 0
+        ):
+            raise ValueError("Stored usage record has an invalid timestamp or response duration")
+        total += 1
+        response_time_total += response_time
+        counts_by_day[timestamp // day_ms] += 1
+        session_id = item.get("session_id")
+        if isinstance(session_id, str) and session_id.strip():
+            sessions.add(session_id)
+        is_example = item.get("is_example_question") is True
+        failed = isinstance(item.get("error"), str) and bool(item["error"].strip())
+        example_count += is_example
+        error_count += failed
+        recent_activity.append(
             {
-                "query": item.get("query", ""),
-                "confidence_level": item.get("confidence_level", "unknown"),
-                "response_time_ms": round(item.get("response_time_ms", 0)),
-                "timestamp": item.get("timestamp", 0),
-                "error": item.get("error"),
-                "is_example_question": item.get("is_example_question", False),
-                "message_index": item.get("message_index", 0),
+                "timestamp": timestamp,
+                "response_time_ms": round(response_time),
+                "is_example_question": is_example,
+                "failed": failed,
             }
         )
+        recent_activity.sort(key=lambda activity: activity["timestamp"], reverse=True)
+        del recent_activity[20:]
 
     return {
         "total_queries": total,
-        "avg_response_time_ms": round(totals["avg_response_time_ms"]),
-        "queries_by_day": sorted(queries_by_day, key=lambda item: item["date"]),
-        "confidence_distribution": {
-            "high": totals["high"],
-            "medium": totals["medium"],
-            "low": totals["low"],
-            "unknown": total - totals["high"] - totals["medium"] - totals["low"],
-        },
-        "recent_queries": recent_queries,
-        "unique_users": unique_users,
-        "example_question_rate": round(totals["example_count"] / total * 100, 1),
-        "avg_session_depth": round(total_depth / session_count, 1) if session_count else 0,
-        "error_count": totals["error_count"],
+        "total_sessions": len(sessions),
+        "avg_response_time_ms": round(response_time_total / total) if total else 0,
+        "queries_by_day": [
+            {"date": datetime.fromtimestamp(day * 86400, UTC).strftime("%Y-%m-%d"), "count": count}
+            for day, count in counts_by_day.items()
+        ],
+        "recent_activity": recent_activity,
+        "example_question_rate": round(example_count / total * 100, 1) if total else 0,
+        "error_count": error_count,
     }
 
 

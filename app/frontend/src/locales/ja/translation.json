@@ -283,33 +283,30 @@
         "examplesHelp": "1行に1つ、最大8件の質問を入力してください。空欄でない質問を少なくとも1件残してください。",
         "removeFunFact": "豆知識 {{number}}を削除",
         "addFunFact": "豆知識を追加",
-        "analyticsTitle": "利用状況の分析（過去30日間）",
-        "analyticsPrivacy": "質問の原文や訪問者の識別情報は保持しません。セッション数は、重複を除いた人数を示すものではありません。",
+        "analyticsTitle": "テキストチャットの利用状況（過去30日間）",
+        "analyticsPrivacy": "テキストチャットのみで、音声やサイト訪問は含みません。新しい利用記録には質問、回答、訪問者の識別情報を保存しません。セッション数は会話数であり、利用者の実人数ではありません。",
         "refresh": "更新",
-        "analyticsLoading": "分析データを読み込み中...",
-        "analyticsEmpty": "「更新」をクリックして分析データを読み込んでください。",
-        "loadAnalytics": "分析データを読み込む",
-        "analyticsError": "分析データを読み込めませんでした。もう一度お試しください。",
+        "analyticsLoading": "利用状況を読み込み中...",
+        "analyticsEmpty": "利用状況レポートは読み込まれていません。",
+        "loadAnalytics": "利用状況を読み込む",
+        "analyticsError": "利用状況を読み込めませんでした。もう一度お試しください。",
+        "analyticsNotConfigured": "このデプロイでは利用記録のストレージが設定されていません。",
+        "analyticsNoActivity": "この期間にテキストチャットの記録はありません。",
+        "usageResponseTimeHelp": "処理時間にはストリーミング回答全体が含まれ、最初のトークンまでの時間ではありません。拒否されたリクエストは集計しません。",
+        "dailyActivity": "日別テキスト利用状況（UTC）",
+        "dailyCount": "{{date}} - テキストリクエスト数: {{count}}",
         "metrics": {
-            "queries": "総質問数",
+            "queries": "テキストリクエスト数",
             "sessions": "セッション数",
-            "responseTime": "平均応答時間",
-            "sessionDepth": "1セッションあたりの平均ターン数",
-            "examples": "質問例のクリック率",
-            "highConfidence": "高信頼度",
-            "lowConfidence": "低信頼度",
-            "errors": "エラー数"
+            "responseTime": "平均処理時間",
+            "examples": "質問例からのリクエスト",
+            "errors": "記録された失敗"
         },
-        "confidenceTitle": "信頼度の分布",
-        "confidence": {
-            "high": "高",
-            "medium": "中",
-            "low": "低",
-            "unknown": "不明"
-        },
-        "recentActivity": "最近のアクティビティ",
-        "chatRequest": "チャットリクエスト",
-        "requestFailed": "失敗"
+        "recentActivity": "最近のテキスト利用状況",
+        "chatRequest": "テキストリクエスト",
+        "requestFailed": "失敗",
+        "requestSucceeded": "完了",
+        "exampleRequest": "質問例"
     },
 
     "helpTexts": {

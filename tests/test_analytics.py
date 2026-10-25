@@ -10,9 +10,6 @@ async def test_analytics_keeps_operational_metrics_without_raw_content_or_user_i
     container = AsyncMock()
     await log_interaction(
         container,
-        "real-owner-id",
-        "Private visitor question",
-        "high",
         100,
         session_id="ephemeral-session",
         error="Detailed private failure",
@@ -23,6 +20,7 @@ async def test_analytics_keeps_operational_metrics_without_raw_content_or_user_i
     assert document["error"] == "request_failed"
     assert document["is_example_question"] is True
     assert "query" not in document
+    assert "confidence_level" not in document
     assert "Private visitor" not in str(document)
     assert "real-owner-id" not in str(document)
 
@@ -31,6 +29,6 @@ async def test_analytics_keeps_operational_metrics_without_raw_content_or_user_i
 async def test_analytics_storage_failure_is_logged_not_disguised_as_persisted(caplog):
     container = AsyncMock()
     container.upsert_item.side_effect = RuntimeError("Storage unavailable")
-    await log_interaction(container, "owner", "Do not retain this question", "high", 100)
+    await log_interaction(container, 100)
     assert "Failed to log analytics event" in caplog.text
     assert "Do not retain this question" not in caplog.text

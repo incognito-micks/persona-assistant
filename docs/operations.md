@@ -116,6 +116,10 @@ To restore access, set the value to `false` for the same environment and apply p
 
 Publish a privacy notice describing browser-local history, model processing, and your configured operational telemetry. Choose and implement a retention/deletion policy appropriate to your deployment. The report's 30-day window does not delete stored records; existing analytics are not backfilled or automatically erased.
 
+The owner **Usage** report covers recorded text requests only, not voice, site visits, unique people, accuracy, or billing. Average duration includes full streamed output and recorded failures; ordinary rejected requests are not recorded. Usage queries page only operational fields within the rolling window and retain at most 20 recent records in the response. The calculation reads all matching records, so Cosmos read cost scales with activity; introduce rollups before using it for high-volume reporting. UTC daily buckets include partial boundary days. Missing storage and failed reads must remain visible errors rather than zero-usage results.
+
+For query changes, run the real-SDK/mocked-gateway pagination regression in [the admin API tests](../tests/test_admin_settings.py), then separately verify the authenticated hosted endpoint after an authorized deployment. A mocked transport does not execute Cosmos SQL or prove live authorization, indexing, or service behavior.
+
 Do not enable prompt-content instrumentation or audio recording by default. Review provider-side logging/retention separately. Limit administrative access and review backups, exports, and diagnostic logs.
 
 ## Safe Teardown

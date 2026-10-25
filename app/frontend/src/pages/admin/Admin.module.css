@@ -149,7 +149,7 @@
 
 .settingsSection,
 .preview,
-.confidenceBar,
+.dailyActivity,
 .recentQueries {
     min-width: 0;
     padding: 1.5rem;
@@ -175,9 +175,9 @@
 
 .sectionHeading h2,
 .previewHeading h2,
-.analyticsHeader h3,
-.confidenceBar h4,
-.recentQueries h4 {
+.analyticsHeader h2,
+.dailyActivity h3,
+.recentQueries h3 {
     margin: 0;
     color: var(--app-text);
     font-size: 1.1rem;
@@ -425,6 +425,10 @@
     gap: 1rem;
 }
 
+.saveBar[hidden] {
+    display: none;
+}
+
 .emptyState {
     display: flex;
     flex-direction: column;
@@ -444,7 +448,7 @@
 
 .statsGrid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 1rem;
 }
 
@@ -468,64 +472,40 @@
     line-height: 1.4;
 }
 
-.barContainer {
+.activityChart {
     display: flex;
-    height: 24px;
-    margin-top: 1rem;
-    overflow: hidden;
+    align-items: flex-end;
+    gap: 4px;
+    height: 9rem;
+    margin: 1.5rem 0 0;
+    padding: 0;
+    list-style: none;
+    border-bottom: 1px solid var(--app-border);
+}
+
+.activityChart li {
+    display: flex;
+    align-items: flex-end;
+    flex: 1;
+    min-width: 0;
+    height: 100%;
     background: var(--app-surface-soft);
-    border-radius: 6px;
+    border-radius: 3px 3px 0 0;
 }
 
-.barSegmentHigh,
-.barSegmentMedium,
-.barSegmentLow,
-.barSegmentUnknown {
-    min-width: 1px;
+.activityBar {
+    width: 100%;
+    background: var(--app-focus);
+    border-radius: inherit;
 }
 
-.barSegmentHigh,
-.legendDotHigh {
-    background: var(--app-success);
-}
-
-.barSegmentMedium,
-.legendDotMedium {
-    background: var(--app-warning);
-}
-
-.barSegmentLow,
-.legendDotLow {
-    background: var(--app-danger);
-}
-
-.barSegmentUnknown,
-.legendDotUnknown {
-    background: var(--app-muted);
-}
-
-.barLegend {
+.activityRange {
     display: flex;
-    flex-wrap: wrap;
+    justify-content: space-between;
     gap: 1rem;
     margin-top: 0.75rem;
-}
-
-.legendItem {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
     color: var(--app-muted);
     font-size: 0.8rem;
-}
-
-.legendDotHigh,
-.legendDotMedium,
-.legendDotLow,
-.legendDotUnknown {
-    width: 9px;
-    height: 9px;
-    border-radius: 2px;
 }
 
 .queryList {
@@ -557,34 +537,6 @@
     gap: 0.75rem;
     color: var(--app-muted);
     font-size: 0.75rem;
-}
-
-.confidenceTag {
-    padding: 0.2rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.7rem;
-    font-weight: 600;
-    text-transform: uppercase;
-}
-
-.confidence_high {
-    color: var(--app-success);
-    background: var(--app-success-soft);
-}
-
-.confidence_medium {
-    color: var(--app-warning);
-    background: var(--app-warning-soft);
-}
-
-.confidence_low {
-    color: var(--app-danger);
-    background: var(--app-danger-soft);
-}
-
-.confidence_unknown {
-    color: var(--app-muted);
-    background: var(--app-background);
 }
 
 .queryError {
@@ -718,7 +670,7 @@
 
     .settingsSection,
     .preview,
-    .confidenceBar,
+    .dailyActivity,
     .recentQueries {
         padding: 1.25rem;
     }

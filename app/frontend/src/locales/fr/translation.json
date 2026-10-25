@@ -283,33 +283,30 @@
         "examplesHelp": "Une question par ligne, jusqu’à 8. Conservez au moins une question non vide.",
         "removeFunFact": "Supprimer l’anecdote {{number}}",
         "addFunFact": "Ajouter une anecdote",
-        "analyticsTitle": "Statistiques d’utilisation (30 derniers jours)",
-        "analyticsPrivacy": "Le texte des questions et l’identité des visiteurs ne sont pas conservés. Le nombre de sessions ne correspond pas au nombre de personnes distinctes.",
+        "analyticsTitle": "Utilisation du chat textuel (30 derniers jours)",
+        "analyticsPrivacy": "Chat textuel uniquement ; voix et visites du site exclues. Les nouveaux enregistrements ne contiennent ni questions, ni réponses, ni identité des visiteurs. Les sessions sont des conversations, pas des personnes distinctes.",
         "refresh": "Actualiser",
-        "analyticsLoading": "Chargement des statistiques...",
-        "analyticsEmpty": "Cliquez sur Actualiser pour charger les statistiques.",
-        "loadAnalytics": "Charger les statistiques",
-        "analyticsError": "Impossible de charger les statistiques. Veuillez réessayer.",
+        "analyticsLoading": "Chargement de l’utilisation...",
+        "analyticsEmpty": "Aucun rapport d’utilisation n’est chargé.",
+        "loadAnalytics": "Charger l’utilisation",
+        "analyticsError": "Impossible de charger l’utilisation. Veuillez réessayer.",
+        "analyticsNotConfigured": "Le stockage des données d’utilisation n’est pas configuré pour ce déploiement.",
+        "analyticsNoActivity": "Aucune activité de chat textuel n’a été enregistrée pendant cette période.",
+        "usageResponseTimeHelp": "La durée inclut toute la réponse diffusée, pas seulement le délai du premier jeton. Les requêtes rejetées ne sont pas comptées.",
+        "dailyActivity": "Activité textuelle quotidienne (UTC)",
+        "dailyCount": "{{date}} - requêtes textuelles : {{count}}",
         "metrics": {
-            "queries": "Nombre total de requêtes",
+            "queries": "Requêtes textuelles",
             "sessions": "Sessions",
-            "responseTime": "Temps de réponse moyen",
-            "sessionDepth": "Profondeur moyenne des sessions",
-            "examples": "Taux de clics sur les exemples",
-            "highConfidence": "Confiance élevée",
-            "lowConfidence": "Confiance faible",
-            "errors": "Erreurs"
+            "responseTime": "Durée moyenne",
+            "examples": "Questions suggérées utilisées",
+            "errors": "Échecs enregistrés"
         },
-        "confidenceTitle": "Répartition des niveaux de confiance",
-        "confidence": {
-            "high": "Élevée",
-            "medium": "Moyenne",
-            "low": "Faible",
-            "unknown": "Inconnue"
-        },
-        "recentActivity": "Activité récente",
-        "chatRequest": "Requête de chat",
-        "requestFailed": "Échec"
+        "recentActivity": "Activité textuelle récente",
+        "chatRequest": "Requête textuelle",
+        "requestFailed": "Échec",
+        "requestSucceeded": "Terminée",
+        "exampleRequest": "Question suggérée"
     },
 
     "helpTexts": {

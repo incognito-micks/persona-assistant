@@ -285,33 +285,30 @@
         "examplesHelp": "Jedno pytanie w każdym wierszu, maksymalnie 8. Pozostaw co najmniej jedno niepuste pytanie.",
         "removeFunFact": "Usuń ciekawostkę {{number}}",
         "addFunFact": "Dodaj ciekawostkę",
-        "analyticsTitle": "Statystyki użytkowania (ostatnie 30 dni)",
-        "analyticsPrivacy": "Nie przechowujemy treści pytań ani danych identyfikujących odwiedzających. Liczba sesji nie jest liczbą unikalnych osób.",
+        "analyticsTitle": "Użycie czatu tekstowego (ostatnie 30 dni)",
+        "analyticsPrivacy": "Tylko czat tekstowy; bez głosu i wizyt na stronie. Nowe rekordy nie zawierają pytań, odpowiedzi ani danych identyfikujących odwiedzających. Sesje to rozmowy, nie unikalne osoby.",
         "refresh": "Odśwież",
-        "analyticsLoading": "Wczytywanie statystyk...",
-        "analyticsEmpty": "Kliknij Odśwież, aby wczytać statystyki.",
-        "loadAnalytics": "Wczytaj statystyki",
-        "analyticsError": "Nie można wczytać statystyk. Spróbuj ponownie.",
+        "analyticsLoading": "Wczytywanie użycia...",
+        "analyticsEmpty": "Nie wczytano raportu użycia.",
+        "loadAnalytics": "Wczytaj użycie",
+        "analyticsError": "Nie można wczytać użycia. Spróbuj ponownie.",
+        "analyticsNotConfigured": "Magazyn danych użycia nie jest skonfigurowany dla tego wdrożenia.",
+        "analyticsNoActivity": "W tym okresie nie zarejestrowano aktywności czatu tekstowego.",
+        "usageResponseTimeHelp": "Czas obejmuje całą odpowiedź strumieniową, nie tylko czas do pierwszego tokenu. Odrzucone żądania nie są zliczane.",
+        "dailyActivity": "Dzienna aktywność tekstowa (UTC)",
+        "dailyCount": "{{date}} - żądania tekstowe: {{count}}",
         "metrics": {
-            "queries": "Łączna liczba zapytań",
+            "queries": "Żądania tekstowe",
             "sessions": "Sesje",
-            "responseTime": "Średni czas odpowiedzi",
-            "sessionDepth": "Średnia liczba tur w sesji",
-            "examples": "Współczynnik kliknięć przykładów",
-            "highConfidence": "Wysoki poziom pewności",
-            "lowConfidence": "Niski poziom pewności",
-            "errors": "Błędy"
+            "responseTime": "Średni czas żądania",
+            "examples": "Użyte sugerowane pytania",
+            "errors": "Zarejestrowane błędy"
         },
-        "confidenceTitle": "Rozkład poziomów pewności",
-        "confidence": {
-            "high": "Wysoki",
-            "medium": "Średni",
-            "low": "Niski",
-            "unknown": "Nieznany"
-        },
-        "recentActivity": "Ostatnia aktywność",
-        "chatRequest": "Żądanie czatu",
-        "requestFailed": "Niepowodzenie"
+        "recentActivity": "Ostatnia aktywność tekstowa",
+        "chatRequest": "Żądanie tekstowe",
+        "requestFailed": "Niepowodzenie",
+        "requestSucceeded": "Ukończono",
+        "exampleRequest": "Sugerowane pytanie"
     },
 
     "helpTexts": {

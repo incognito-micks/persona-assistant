@@ -1,10 +1,13 @@
+import json
 from copy import deepcopy
+from datetime import UTC, datetime
 from unittest import mock
 
 import pytest
 from azure.core import MatchConditions
+from azure.core.pipeline.transport import AsyncHttpResponse, AsyncHttpTransport
 from azure.cosmos import PartitionKey
-from azure.cosmos.aio import ContainerProxy
+from azure.cosmos.aio import ContainerProxy, CosmosClient
 from azure.cosmos.exceptions import (
     CosmosHttpResponseError,
     CosmosResourceExistsError,
@@ -21,6 +24,7 @@ from config import (
     CONFIG_COSMOS_SETTINGS_CONTAINER,
     CONFIG_CREDENTIAL,
 )
+from tests.mocks import MockAzureCredential
 
 
 @pytest.fixture(autouse=True)
@@ -462,35 +466,22 @@ async def analytics_rows(rows):
 
 
 @pytest.mark.asyncio
-async def test_analytics_uses_aggregates_and_a_bounded_recent_projection(admin_app_factory, monkeypatch):
+async def test_analytics_summarizes_every_projected_record_and_bounds_recent_activity(admin_app_factory, monkeypatch):
     monkeypatch.setattr(settings_cosmosdb.time, "time", lambda: 2000000000)
-    totals = {
-        "total_queries": 1000,
-        "avg_response_time_ms": 125.7,
-        "example_count": 250,
-        "error_count": 3,
-        "high": 700,
-        "medium": 50,
-        "low": 100,
-    }
-    recent = {
-        "query": "Latest question",
-        "confidence_level": "high",
-        "response_time_ms": 90.4,
-        "timestamp": 2000000000000,
-        "message_index": 3,
-    }
-    container = mock.Mock(
-        query_items=mock.Mock(
-            side_effect=[
-                analytics_rows([totals]),
-                analytics_rows([{"day": 20001, "count": 600}, {"day": 20000, "count": 400}]),
-                analytics_rows(["first-user", "second-user"]),
-                analytics_rows([{"depth": 4}, {"depth": 2}]),
-                analytics_rows([recent]),
-            ]
-        )
-    )
+    records = [
+        {
+            "timestamp": 2000000000000 - (index % 2) * 86400000 - index,
+            "session_id": f"session-{index % 2}",
+            "response_time_ms": 125.7,
+            "is_example_question": index % 4 == 0,
+            "error": "Legacy private error" if index % 100 == 0 else None,
+            "query": "Legacy private question",
+            "confidence_level": "high",
+            "user_oid": "Legacy owner identity",
+        }
+        for index in range(1003)
+    ]
+    container = mock.Mock(query_items=mock.Mock(return_value=analytics_rows(reversed(records))))
     app = admin_app_factory()
     app.config[CONFIG_COSMOS_ANALYTICS_CONTAINER] = container
 
@@ -498,42 +489,65 @@ async def test_analytics_uses_aggregates_and_a_bounded_recent_projection(admin_a
 
     assert response.status_code == 200
     result = await response.get_json()
-    assert result["total_queries"] == 1000
+    assert result["total_queries"] == 1003
     assert result["avg_response_time_ms"] == 126
-    assert result["unique_users"] == 2
-    assert result["avg_session_depth"] == 3
+    assert result["total_sessions"] == 2
     assert result["example_question_rate"] == 25
-    assert result["confidence_distribution"] == {"high": 700, "medium": 50, "low": 100, "unknown": 150}
-    assert result["error_count"] == 3
-    assert result["queries_by_day"] == [
-        {"date": "2024-10-04", "count": 400},
-        {"date": "2024-10-05", "count": 600},
+    assert result["error_count"] == 11
+    assert len(result["queries_by_day"]) == 31
+    assert sum(day["count"] for day in result["queries_by_day"]) == 1003
+    assert [day for day in result["queries_by_day"] if day["count"]] == [
+        {"date": datetime.fromtimestamp(2000000000 - 86400, UTC).strftime("%Y-%m-%d"), "count": 501},
+        {"date": datetime.fromtimestamp(2000000000, UTC).strftime("%Y-%m-%d"), "count": 502},
     ]
-    assert result["recent_queries"][0]["query"] == "Latest question"
-    calls = container.query_items.call_args_list
-    assert len(calls) == 5
-    assert all("SELECT *" not in call.kwargs["query"] for call in calls)
+    assert len(result["recent_activity"]) == 20
+    assert [activity["timestamp"] for activity in result["recent_activity"]] == [
+        2000000000000 - index * 2 for index in range(20)
+    ]
+    assert result["recent_activity"][0] == {
+        "timestamp": 2000000000000,
+        "response_time_ms": 126,
+        "is_example_question": True,
+        "failed": True,
+    }
+    assert set(result) == {
+        "total_queries",
+        "total_sessions",
+        "avg_response_time_ms",
+        "queries_by_day",
+        "recent_activity",
+        "example_question_rate",
+        "error_count",
+    }
+    assert "Legacy" not in str(result)
+    assert "confidence" not in str(result)
+    query = container.query_items.call_args.kwargs
+    container.query_items.assert_called_once()
+    assert query["parameters"] == [
+        {"name": "@since", "value": (2000000000 - 30 * 86400) * 1000},
+        {"name": "@until", "value": 2000000000000},
+    ]
+    assert "c.timestamp >= @since AND c.timestamp <= @until" in query["query"]
     assert all(
-        call.kwargs["parameters"]
-        == [
-            {"name": "@since", "value": (2000000000 - 30 * 86400) * 1000},
-            {"name": "@until", "value": 2000000000000},
-        ]
-        for call in calls
+        token not in query["query"]
+        for token in ("COUNT(", "SUM(", "AVG(", "GROUP BY", "TOP ", "SELECT *", "c.query", "c.confidence", "c.user_oid")
     )
-    assert all("c.timestamp <= @until" in call.kwargs["query"] for call in calls)
-    assert "TOP 20" in calls[-1].kwargs["query"]
-    assert calls[-1].kwargs["max_item_count"] == 20
+    assert query["max_item_count"] == 100
 
 
 @pytest.mark.asyncio
-async def test_analytics_empty_store_does_not_read_raw_events(admin_app_factory):
-    container = mock.Mock(query_items=mock.Mock(return_value=analytics_rows([{"total_queries": 0}])))
+async def test_analytics_empty_store_is_a_real_zero_usage_result(admin_app_factory):
+    container = mock.Mock(query_items=mock.Mock(return_value=analytics_rows([])))
     app = admin_app_factory()
     app.config[CONFIG_COSMOS_ANALYTICS_CONTAINER] = container
     response = await app.test_client().get("/api/admin/analytics")
     assert response.status_code == 200
-    assert (await response.get_json()) == settings_cosmosdb._empty_analytics()
+    result = await response.get_json()
+    assert result["total_queries"] == result["total_sessions"] == result["error_count"] == 0
+    assert result["avg_response_time_ms"] == result["example_question_rate"] == 0
+    assert len(result["queries_by_day"]) == 31
+    assert all(day["count"] == 0 for day in result["queries_by_day"])
+    assert result["recent_activity"] == []
     container.query_items.assert_called_once()
 
 
@@ -558,9 +572,24 @@ async def test_analytics_query_failure_is_explicit(admin_app_factory):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("rows", [[], [{"total_queries": 0}, {"total_queries": 0}]])
-async def test_analytics_rejects_missing_or_multiple_totals(admin_app_factory, rows):
-    container = mock.Mock(query_items=mock.Mock(return_value=analytics_rows(rows)))
+@pytest.mark.parametrize(
+    "record",
+    [
+        {},
+        {"timestamp": True, "response_time_ms": 1},
+        {"timestamp": "invalid", "response_time_ms": 1},
+        {"timestamp": 2000000000001, "response_time_ms": 1},
+        {"timestamp": 0, "response_time_ms": 1},
+        {"timestamp": 2000000000000, "response_time_ms": None},
+        {"timestamp": 2000000000000, "response_time_ms": True},
+        {"timestamp": 2000000000000, "response_time_ms": -1},
+        {"timestamp": 2000000000000, "response_time_ms": float("nan")},
+        {"timestamp": 2000000000000, "response_time_ms": float("inf")},
+    ],
+)
+async def test_analytics_invalid_usage_record_is_an_explicit_error(admin_app_factory, monkeypatch, record):
+    monkeypatch.setattr(settings_cosmosdb.time, "time", lambda: 2000000000)
+    container = mock.Mock(query_items=mock.Mock(return_value=analytics_rows([record])))
     app = admin_app_factory()
     app.config[CONFIG_COSMOS_ANALYTICS_CONTAINER] = container
     response = await app.test_client().get("/api/admin/analytics")
@@ -569,18 +598,140 @@ async def test_analytics_rejects_missing_or_multiple_totals(admin_app_factory, r
 
 
 @pytest.mark.asyncio
-async def test_analytics_rejects_invalid_grouped_user(admin_app_factory):
-    container = mock.Mock(
-        query_items=mock.Mock(
-            side_effect=[
-                analytics_rows([{"total_queries": 1}]),
-                analytics_rows([]),
-                analytics_rows([None]),
-            ]
-        )
-    )
+async def test_analytics_failure_after_a_page_does_not_return_partial_totals(admin_app_factory, monkeypatch):
+    monkeypatch.setattr(settings_cosmosdb.time, "time", lambda: 2000000000)
+
+    async def failing_pages():
+        yield {"timestamp": 2000000000000, "response_time_ms": 5}
+        raise CosmosHttpResponseError(status_code=503, message="Second page unavailable")
+
+    container = mock.Mock(query_items=mock.Mock(return_value=failing_pages()))
     app = admin_app_factory()
     app.config[CONFIG_COSMOS_ANALYTICS_CONTAINER] = container
     response = await app.test_client().get("/api/admin/analytics")
     assert response.status_code == 500
     assert "error" in await response.get_json()
+
+
+@pytest.mark.asyncio
+async def test_analytics_counts_sessions_without_turn_or_identity_assumptions():
+    records = [
+        {"timestamp": 0, "response_time_ms": 10, "session_id": "one"},
+        {"timestamp": 1, "response_time_ms": 20, "session_id": "one"},
+        {"timestamp": 2, "response_time_ms": 30, "session_id": ""},
+        {"timestamp": 3, "response_time_ms": 40, "session_id": None},
+        {"timestamp": 4, "response_time_ms": 50, "user_oid": "anonymous"},
+        {"timestamp": 5, "response_time_ms": 60, "session_id": "two"},
+    ]
+    container = mock.Mock(query_items=mock.Mock(return_value=analytics_rows(records)))
+    result = await settings_cosmosdb.compute_analytics_summary(container, 0, 5)
+    assert result["total_queries"] == 6
+    assert result["total_sessions"] == 2
+    assert result["avg_response_time_ms"] == 35
+    assert result["queries_by_day"] == [{"date": "1970-01-01", "count": 6}]
+
+
+@pytest.mark.asyncio
+async def test_analytics_rejects_an_invalid_reporting_window():
+    container = mock.Mock()
+    with pytest.raises(ValueError, match="window"):
+        await settings_cosmosdb.compute_analytics_summary(container, 2, 1)
+    container.query_items.assert_not_called()
+
+
+class UsageGatewayResponse(AsyncHttpResponse):
+    def __init__(self, request, payload, status=200, continuation=None):
+        super().__init__(request, None)
+        self.status_code = status
+        self.reason = "OK" if status == 200 else "Bad Request"
+        self.headers = {"content-type": "application/json"}
+        if continuation is not None:
+            self.headers["x-ms-continuation"] = continuation
+        self.content_type = "application/json"
+        self.payload = json.dumps(payload).encode()
+
+    def body(self):
+        return self.payload
+
+
+class UsageGatewayTransport(AsyncHttpTransport):
+    def __init__(self):
+        self.queries = []
+
+    async def open(self):
+        pass
+
+    async def close(self):
+        pass
+
+    async def __aexit__(self, *args):
+        await self.close()
+
+    async def send(self, request, **kwargs):
+        if request.method == "GET" and request.url.rstrip("/") == "https://usage.documents.azure.com":
+            return UsageGatewayResponse(
+                request,
+                {
+                    "id": "usage",
+                    "readableLocations": [],
+                    "writableLocations": [],
+                    "userConsistencyPolicy": {"defaultConsistencyLevel": "Session"},
+                },
+            )
+        if request.method == "GET" and request.url.rstrip("/").endswith("/colls/analytics"):
+            return UsageGatewayResponse(
+                request,
+                {
+                    "id": "analytics",
+                    "_rid": "usage",
+                    "partitionKey": {"paths": ["/user_oid"], "kind": "Hash", "version": 2},
+                },
+            )
+        assert request.method == "POST" and request.url.rstrip("/").endswith("/docs"), request.url
+        query = json.loads(request.body)
+        self.queries.append(query["query"])
+        if ("COUNT(" in query["query"] and "AVG(" in query["query"]) or "GROUP BY" in query["query"]:
+            return UsageGatewayResponse(
+                request,
+                {
+                    "code": "BadRequest",
+                    "message": "Query contained NonValueAggregate and MultipleAggregates, which the calling client does not support.",
+                },
+                status=400,
+            )
+        continuation = request.headers.get("x-ms-continuation")
+        records = (
+            [{"timestamp": 2, "response_time_ms": 20, "session_id": "two"}]
+            if continuation
+            else [
+                {"timestamp": 0, "response_time_ms": 10, "session_id": "one"},
+                {"timestamp": 1, "response_time_ms": 15, "session_id": "one"},
+            ]
+        )
+        return UsageGatewayResponse(
+            request, {"Documents": records, "_count": len(records)}, continuation=None if continuation else "next-page"
+        )
+
+
+@pytest.mark.asyncio
+async def test_analytics_supported_projection_paginates_through_the_real_cosmos_sdk():
+    transport = UsageGatewayTransport()
+    async with CosmosClient(
+        "https://usage.documents.azure.com",
+        credential=MockAzureCredential(),
+        transport=transport,
+        enable_endpoint_discovery=False,
+    ) as client:
+        container = client.get_database_client("usage").get_container_client("analytics")
+        with pytest.raises(CosmosHttpResponseError, match="NonValueAggregate"):
+            async for item in container.query_items(
+                query="SELECT COUNT(1) AS total, AVG(c.response_time_ms) AS latency FROM c"
+            ):
+                pytest.fail(f"The unsupported aggregate unexpectedly succeeded: {item}")
+        result = await settings_cosmosdb.compute_analytics_summary(container, 0, 2)
+    assert result["total_queries"] == 3
+    assert result["total_sessions"] == 2
+    assert result["avg_response_time_ms"] == 15
+    assert [item["timestamp"] for item in result["recent_activity"]] == [2, 1, 0]
+    assert len(transport.queries) == 3
+    assert transport.queries[1] == transport.queries[2]

@@ -283,33 +283,30 @@
         "examplesHelp": "Her satıra bir soru yazın; en fazla 8 soru ekleyebilirsiniz. Boş olmayan en az bir soru bırakın.",
         "removeFunFact": "{{number}} numaralı bilgiyi kaldır",
         "addFunFact": "İlginç bilgi ekle",
-        "analyticsTitle": "Kullanım istatistikleri (son 30 gün)",
-        "analyticsPrivacy": "Soruların ham metni ve ziyaretçilerin kimlik bilgileri saklanmaz. Oturum sayısı, farklı kişi sayısını göstermez.",
+        "analyticsTitle": "Metin sohbeti kullanımı (son 30 gün)",
+        "analyticsPrivacy": "Yalnızca metin sohbeti; ses ve site ziyaretleri dahil değildir. Yeni kayıtlarda sorular, yanıtlar ve ziyaretçi kimlikleri tutulmaz. Oturumlar benzersiz kişileri değil, konuşmaları sayar.",
         "refresh": "Yenile",
-        "analyticsLoading": "İstatistikler yükleniyor...",
-        "analyticsEmpty": "İstatistikleri yüklemek için Yenile’ye tıklayın.",
-        "loadAnalytics": "İstatistikleri yükle",
-        "analyticsError": "İstatistikler yüklenemedi. Lütfen tekrar deneyin.",
+        "analyticsLoading": "Kullanım yükleniyor...",
+        "analyticsEmpty": "Yüklenmiş kullanım raporu yok.",
+        "loadAnalytics": "Kullanımı yükle",
+        "analyticsError": "Kullanım yüklenemedi. Lütfen tekrar deneyin.",
+        "analyticsNotConfigured": "Bu dağıtım için kullanım depolaması yapılandırılmamış.",
+        "analyticsNoActivity": "Bu dönemde metin sohbeti etkinliği kaydedilmedi.",
+        "usageResponseTimeHelp": "Süre, yalnızca ilk belirtece kadar geçen zamanı değil, akıştaki yanıtın tamamını içerir. Reddedilen istekler sayılmaz.",
+        "dailyActivity": "Günlük metin etkinliği (UTC)",
+        "dailyCount": "{{date}} - metin istekleri: {{count}}",
         "metrics": {
-            "queries": "Toplam sorgu",
+            "queries": "Metin istekleri",
             "sessions": "Oturumlar",
-            "responseTime": "Ortalama yanıt süresi",
-            "sessionDepth": "Ortalama oturum derinliği",
-            "examples": "Örneklere tıklanma oranı",
-            "highConfidence": "Yüksek güven düzeyi",
-            "lowConfidence": "Düşük güven düzeyi",
-            "errors": "Hatalar"
+            "responseTime": "Ortalama istek süresi",
+            "examples": "Önerilen soru istekleri",
+            "errors": "Kaydedilen hatalar"
         },
-        "confidenceTitle": "Güven düzeyi dağılımı",
-        "confidence": {
-            "high": "Yüksek",
-            "medium": "Orta",
-            "low": "Düşük",
-            "unknown": "Bilinmiyor"
-        },
-        "recentActivity": "Son etkinlikler",
-        "chatRequest": "Sohbet isteği",
-        "requestFailed": "Başarısız"
+        "recentActivity": "Son metin etkinliği",
+        "chatRequest": "Metin isteği",
+        "requestFailed": "Başarısız",
+        "requestSucceeded": "Tamamlandı",
+        "exampleRequest": "Önerilen soru"
     },
 
     "helpTexts": {

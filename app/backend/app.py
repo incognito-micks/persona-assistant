@@ -139,10 +139,6 @@ async def format_as_ndjson(r: AsyncGenerator[dict, None]) -> AsyncGenerator[str,
         yield json.dumps(error_dict(error)) + "\n"
 
 
-def _extract_confidence_from_result(result: dict) -> str:
-    return result.get("context", {}).get("confidence_level", "unknown")
-
-
 def validate_chat_request(payload: Any) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise BadRequest("Request must be a JSON object")
@@ -188,7 +184,6 @@ async def chat(auth_claims: dict[str, Any]):
     if not request.is_json:
         return jsonify({"error": "request must be json"}), 415
 
-    user_oid = auth_claims.get("oid", "anonymous")
     start_time = time.time()
     user_query = ""
     message_index = 0
@@ -219,14 +214,10 @@ async def chat(auth_claims: dict[str, Any]):
             session_state=session_state,
         )
         elapsed_ms = (time.time() - start_time) * 1000
-        confidence = _extract_confidence_from_result(result)
         response_content = result.get("message", {}).get("content", "")
         current_app.add_background_task(
             log_interaction,
             analytics_container,
-            user_oid,
-            user_query,
-            confidence,
             elapsed_ms,
             session_id=session_state if isinstance(session_state, str) else None,
             message_index=message_index,
@@ -247,9 +238,6 @@ async def chat(auth_claims: dict[str, Any]):
         current_app.add_background_task(
             log_interaction,
             analytics_container,
-            user_oid,
-            user_query,
-            "error",
             elapsed_ms,
             session_id=session_state if isinstance(session_state, str) else None,
             message_index=message_index,
@@ -264,7 +252,6 @@ async def chat_stream(auth_claims: dict[str, Any]):
     if not request.is_json:
         return jsonify({"error": "request must be json"}), 415
 
-    user_oid = auth_claims.get("oid", "anonymous")
     start_time = time.time()
     user_query = ""
     message_index = 0
@@ -299,13 +286,9 @@ async def chat_stream(auth_claims: dict[str, Any]):
         sid = session_state if isinstance(session_state, str) else None
 
         async def stream_with_analytics(stream: AsyncGenerator[dict, None]) -> AsyncGenerator[dict, None]:
-            confidence = "unknown"
             response_length = 0
             try:
                 async for event in stream:
-                    ctx = event.get("context")
-                    if ctx and hasattr(ctx, "confidence_level") and ctx.confidence_level:
-                        confidence = ctx.confidence_level
                     delta_content = event.get("delta", {}).get("content")
                     if delta_content:
                         response_length += len(delta_content)
@@ -314,9 +297,6 @@ async def chat_stream(auth_claims: dict[str, Any]):
                 app.add_background_task(
                     log_interaction,
                     analytics_container,
-                    user_oid,
-                    user_query,
-                    "error",
                     (time.time() - start_time) * 1000,
                     session_id=sid,
                     message_index=message_index,
@@ -329,9 +309,6 @@ async def chat_stream(auth_claims: dict[str, Any]):
                 app.add_background_task(
                     log_interaction,
                     analytics_container,
-                    user_oid,
-                    user_query,
-                    confidence,
                     (time.time() - start_time) * 1000,
                     session_id=sid,
                     message_index=message_index,
@@ -356,9 +333,6 @@ async def chat_stream(auth_claims: dict[str, Any]):
         current_app.add_background_task(
             log_interaction,
             analytics_container,
-            user_oid,
-            user_query,
-            "error",
             elapsed_ms,
             session_id=session_state if isinstance(session_state, str) else None,
             message_index=message_index,

@@ -283,33 +283,30 @@
         "examplesHelp": "Una domanda per riga, fino a 8. Mantieni almeno una domanda non vuota.",
         "removeFunFact": "Rimuovi curiosità {{number}}",
         "addFunFact": "Aggiungi curiosità",
-        "analyticsTitle": "Statistiche di utilizzo (ultimi 30 giorni)",
-        "analyticsPrivacy": "Il testo delle domande e le identità dei visitatori non vengono conservati. Il numero di sessioni non corrisponde al numero di persone distinte.",
+        "analyticsTitle": "Uso della chat testuale (ultimi 30 giorni)",
+        "analyticsPrivacy": "Solo chat testuale; voce e visite al sito non sono incluse. I nuovi dati non contengono domande, risposte o identità dei visitatori. Le sessioni sono conversazioni, non persone distinte.",
         "refresh": "Aggiorna",
-        "analyticsLoading": "Caricamento delle statistiche...",
-        "analyticsEmpty": "Fai clic su Aggiorna per caricare le statistiche.",
-        "loadAnalytics": "Carica statistiche",
-        "analyticsError": "Impossibile caricare le statistiche. Riprova.",
+        "analyticsLoading": "Caricamento dell’uso...",
+        "analyticsEmpty": "Nessun rapporto di utilizzo caricato.",
+        "loadAnalytics": "Carica utilizzo",
+        "analyticsError": "Impossibile caricare l’utilizzo. Riprova.",
+        "analyticsNotConfigured": "L’archiviazione dei dati di utilizzo non è configurata per questa distribuzione.",
+        "analyticsNoActivity": "Nessuna attività di chat testuale registrata in questo periodo.",
+        "usageResponseTimeHelp": "La durata include l’intera risposta in streaming, non solo il tempo al primo token. Le richieste rifiutate non vengono conteggiate.",
+        "dailyActivity": "Attività testuale giornaliera (UTC)",
+        "dailyCount": "{{date}} - richieste di testo: {{count}}",
         "metrics": {
-            "queries": "Richieste totali",
+            "queries": "Richieste di testo",
             "sessions": "Sessioni",
-            "responseTime": "Tempo medio di risposta",
-            "sessionDepth": "Profondità media delle sessioni",
-            "examples": "Percentuale di clic sugli esempi",
-            "highConfidence": "Confidenza alta",
-            "lowConfidence": "Confidenza bassa",
-            "errors": "Errori"
+            "responseTime": "Durata media",
+            "examples": "Richieste suggerite",
+            "errors": "Errori registrati"
         },
-        "confidenceTitle": "Distribuzione dei livelli di confidenza",
-        "confidence": {
-            "high": "Alta",
-            "medium": "Media",
-            "low": "Bassa",
-            "unknown": "Sconosciuta"
-        },
-        "recentActivity": "Attività recente",
-        "chatRequest": "Richiesta di chat",
-        "requestFailed": "Non riuscita"
+        "recentActivity": "Attività testuale recente",
+        "chatRequest": "Richiesta di testo",
+        "requestFailed": "Non riuscita",
+        "requestSucceeded": "Completata",
+        "exampleRequest": "Domanda suggerita"
     },
 
     "helpTexts": {

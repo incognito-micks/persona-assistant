@@ -283,33 +283,30 @@
         "examplesHelp": "Eén vraag per regel, maximaal 8. Behoud ten minste één niet-lege vraag.",
         "removeFunFact": "Weetje {{number}} verwijderen",
         "addFunFact": "Weetje toevoegen",
-        "analyticsTitle": "Gebruiksstatistieken (afgelopen 30 dagen)",
-        "analyticsPrivacy": "De oorspronkelijke tekst van vragen en de identiteit van bezoekers worden niet bewaard. Het aantal sessies is niet gelijk aan het aantal verschillende personen.",
+        "analyticsTitle": "Tekstchatgebruik (afgelopen 30 dagen)",
+        "analyticsPrivacy": "Alleen tekstchat; spraak en websitebezoeken zijn niet inbegrepen. Nieuwe gebruiksgegevens bevatten geen vragen, antwoorden of bezoekersidentiteiten. Sessies zijn gesprekken, geen unieke personen.",
         "refresh": "Vernieuwen",
-        "analyticsLoading": "Statistieken laden...",
-        "analyticsEmpty": "Klik op Vernieuwen om de statistieken te laden.",
-        "loadAnalytics": "Statistieken laden",
-        "analyticsError": "De statistieken konden niet worden geladen. Probeer het opnieuw.",
+        "analyticsLoading": "Gebruik laden...",
+        "analyticsEmpty": "Er is geen gebruiksrapport geladen.",
+        "loadAnalytics": "Gebruik laden",
+        "analyticsError": "Het gebruik kon niet worden geladen. Probeer het opnieuw.",
+        "analyticsNotConfigured": "Opslag van gebruiksgegevens is niet ingesteld voor deze implementatie.",
+        "analyticsNoActivity": "Er is geen tekstchatactiviteit geregistreerd in deze periode.",
+        "usageResponseTimeHelp": "De duur omvat het volledige gestreamde antwoord, niet alleen de tijd tot het eerste token. Geweigerde verzoeken worden niet meegeteld.",
+        "dailyActivity": "Dagelijkse tekstactiviteit (UTC)",
+        "dailyCount": "{{date}} - tekstverzoeken: {{count}}",
         "metrics": {
-            "queries": "Totaal aantal vragen",
+            "queries": "Tekstverzoeken",
             "sessions": "Sessies",
-            "responseTime": "Gemiddelde reactietijd",
-            "sessionDepth": "Gemiddelde sessiediepte",
-            "examples": "Klikpercentage van voorbeelden",
-            "highConfidence": "Hoge betrouwbaarheid",
-            "lowConfidence": "Lage betrouwbaarheid",
-            "errors": "Fouten"
+            "responseTime": "Gemiddelde verzoekduur",
+            "examples": "Voorgestelde vragen gebruikt",
+            "errors": "Geregistreerde fouten"
         },
-        "confidenceTitle": "Verdeling van betrouwbaarheidsniveaus",
-        "confidence": {
-            "high": "Hoog",
-            "medium": "Gemiddeld",
-            "low": "Laag",
-            "unknown": "Onbekend"
-        },
-        "recentActivity": "Recente activiteit",
-        "chatRequest": "Chatverzoek",
-        "requestFailed": "Mislukt"
+        "recentActivity": "Recente tekstactiviteit",
+        "chatRequest": "Tekstverzoek",
+        "requestFailed": "Mislukt",
+        "requestSucceeded": "Voltooid",
+        "exampleRequest": "Voorgestelde vraag"
     },
 
     "helpTexts": {

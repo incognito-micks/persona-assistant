@@ -45,6 +45,14 @@ When browser history is enabled, desktop history appears beside the conversation
 
 Conversation and history scroll independently. The composer and public contact links occupy their own layout space rather than covering one another. If browser storage fails, the received reply stays on screen and the UI reports that history could not be saved.
 
+## Owner Usage
+
+The owner workspace's **Usage** tab loads recorded text-chat activity for the last 30 days: requests, anonymous conversation sessions, average request duration, suggested-question use, failures, daily activity in UTC, and the latest 20 operational records. Sessions are not unique people. Durations include the complete streamed reply, not time to first token; rejected requests are not counted.
+
+Voice, site visits, model accuracy, and billing are not included. There are no confidence scores or raw question/answer previews. New records omit prompt content, authenticated owner identities, and detailed errors; existing stored records are not deleted or migrated.
+
+The report pages a narrow projection through Cosmos and calculates summaries without unsupported cross-partition aggregates. It reads every matching record, not an arbitrary first page or capped sample. Read cost grows with activity in the window; memory holds session IDs, daily counts, and at most 20 recent metadata records. This is intended for a low-volume personal assistant; high-volume deployments should introduce deliberate rollups. A query/storage failure is an error, not an empty report. See [operations](docs/operations.md#data) for retention responsibilities.
+
 ## Local Development
 
 Use Python 3.11 or newer and Node.js 20.19 or newer (22 LTS recommended); see the [tested compatibility scope](#tested-compatibility) before choosing another runtime. Live development and deployment also need [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) (`az`) and [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd) (`azd`) 1.37.1 or newer. Docker is used for local container validation.

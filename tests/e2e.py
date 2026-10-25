@@ -6,6 +6,7 @@ import subprocess
 import time
 from collections.abc import Generator
 from contextlib import closing
+from datetime import UTC, datetime, timedelta
 from multiprocessing import Process, get_context
 from multiprocessing.connection import wait
 from pathlib import Path
@@ -637,6 +638,33 @@ def test_admin_non_owner_denial_does_not_affect_public_chat(page: Page, live_ser
     assert public_calls[0]["authorization"] is None
 
 
+def usage_response():
+    end = datetime(2026, 10, 25, 12, tzinfo=UTC)
+    return {
+        "total_queries": 4,
+        "total_sessions": 2,
+        "avg_response_time_ms": 250,
+        "queries_by_day": [
+            {
+                "date": (end - timedelta(days=offset)).date().isoformat(),
+                "count": 3 if offset == 0 else 1 if offset == 1 else 0,
+            }
+            for offset in reversed(range(31))
+        ],
+        "recent_activity": [
+            {
+                "response_time_ms": 250,
+                "timestamp": int(end.timestamp() * 1000) - (86400000 if index == 3 else index * 1000),
+                "failed": index == 3,
+                "is_example_question": index == 0,
+            }
+            for index in range(4)
+        ],
+        "example_question_rate": 25,
+        "error_count": 1,
+    }
+
+
 def test_admin_owner_controls_have_readable_dark_theme_contrast(
     page: Page, live_server_url: str, public_profile, owner_auth
 ):
@@ -651,27 +679,7 @@ def test_admin_owner_controls_have_readable_dark_theme_contrast(
     )
     page.route(
         "**/api/admin/analytics",
-        lambda route: route.fulfill(
-            json={
-                "total_queries": 4,
-                "avg_response_time_ms": 25,
-                "queries_by_day": [],
-                "confidence_distribution": {"high": 1, "medium": 1, "low": 1, "unknown": 1},
-                "recent_queries": [
-                    {
-                        "confidence_level": level,
-                        "response_time_ms": 25,
-                        "timestamp": 1_800_000_000_000,
-                        "error": level == "low",
-                    }
-                    for level in ("high", "medium", "low", "unknown")
-                ],
-                "unique_users": 2,
-                "example_question_rate": 25,
-                "avg_session_depth": 2,
-                "error_count": 1,
-            }
-        ),
+        lambda route: route.fulfill(json=usage_response()),
     )
     page.goto(f"{live_server_url}#/admin")
     page.get_by_role("button", name="Continue with Microsoft", exact=True).click()
@@ -694,12 +702,11 @@ def test_admin_owner_controls_have_readable_dark_theme_contrast(
     assert_text_contrast(save_error)
 
     page.get_by_role("tab", name="Usage", exact=True).click()
-    page.get_by_role("button", name="Load Analytics", exact=True).click()
     expect(page.get_by_text("Sessions", exact=True)).to_be_visible()
     for element in admin.locator(
-        '.ms-Pivot-text, [class*="analyticsTab"] h3, [class*="analyticsTab"] h4, '
+        '.ms-Pivot-text, [class*="analyticsTab"] h2, [class*="analyticsTab"] h3, '
         '[class*="analyticsTab"] p, [class*="analyticsTab"] .ms-Button-label, '
-        '[class*="statValue"], [class*="statLabel"], [class*="legendItem"], '
+        '[class*="statValue"], [class*="statLabel"], [class*="activityRange"] > span, '
         '[class*="queryText"], [class*="queryMeta"] > span'
     ).all():
         assert_text_contrast(element)
@@ -751,39 +758,174 @@ def test_admin_analytics_labels_sessions_and_omits_raw_questions(
         "**/api/admin/settings",
         lambda route: route.fulfill(json={**public_profile, "manager_email": "", "fun_facts": []}),
     )
-    page.route(
-        "**/api/admin/analytics",
-        lambda route: route.fulfill(
-            json={
-                "total_queries": 1,
-                "avg_response_time_ms": 25,
-                "queries_by_day": [],
-                "confidence_distribution": {"high": 0, "medium": 0, "low": 0, "unknown": 1},
-                "recent_queries": [
-                    {
-                        "query": "Legacy raw question must not be rendered",
-                        "confidence_level": "unknown",
-                        "response_time_ms": 25,
-                        "timestamp": 1_800_000_000_000,
-                        "error": "Legacy raw error must not be rendered",
-                    }
-                ],
-                "unique_users": 1,
-                "example_question_rate": 0,
-                "avg_session_depth": 1,
-                "error_count": 1,
-            }
-        ),
+    data = usage_response()
+    data["recent_activity"][0].update(
+        query="Legacy raw question must not be rendered",
+        confidence_level="high",
+        error="Legacy raw error must not be rendered",
     )
+    page.route("**/api/admin/analytics", lambda route: route.fulfill(json=data))
     page.goto(f"{live_server_url}#/admin")
     page.get_by_role("button", name="Continue with Microsoft", exact=True).click()
     page.get_by_role("tab", name="Usage", exact=True).click()
-    expect(page.get_by_text(re.compile("Raw questions and visitor identities are not retained"))).to_be_visible()
-    page.get_by_role("button", name="Load Analytics", exact=True).click()
+    expect(page.get_by_text(re.compile("Text chat only; voice and site visits are not included"))).to_be_visible()
     expect(page.get_by_text("Sessions", exact=True)).to_be_visible()
     expect(page.get_by_text("Unique Users", exact=True)).to_have_count(0)
-    expect(page.get_by_text("Chat request", exact=True)).to_be_visible()
+    expect(page.get_by_text("Text request", exact=True).first).to_be_visible()
+    expect(page.get_by_text("Confidence Distribution", exact=True)).to_have_count(0)
+    expect(page.get_by_text("High Confidence", exact=True)).to_have_count(0)
     expect(page.get_by_text(re.compile("Legacy raw"))).to_have_count(0)
+
+
+def test_owner_usage_loads_on_selection_and_refreshes(page: Page, live_server_url: str, owner_settings):
+    pending = []
+    page.route("**/api/admin/analytics", lambda route: pending.append(route))
+    page.goto(f"{live_server_url}#/admin")
+    page.get_by_role("button", name="Continue with Microsoft", exact=True).click()
+    expect(page.get_by_label("Owner Name", exact=True)).to_be_visible()
+    assert pending == []
+    page.get_by_role("tab", name="Usage", exact=True).click()
+    expect(page.get_by_text("Loading usage...", exact=True)).to_be_visible()
+    expect(page.get_by_role("button", name="Refresh", exact=True)).to_be_disabled()
+    assert len(pending) == 1
+    assert pending[0].request.headers["authorization"].startswith("Bearer ")
+    pending[0].fulfill(json=usage_response())
+    expect(page.get_by_text("Sessions", exact=True)).to_be_visible()
+    page.get_by_role("tab", name="Personalize", exact=True).click()
+    page.get_by_role("tab", name="Usage", exact=True).click()
+    assert len(pending) == 1
+    page.get_by_role("button", name="Refresh", exact=True).click()
+    expect(page.get_by_text("Loading usage...", exact=True)).to_be_visible()
+    assert len(pending) == 2
+    refreshed = usage_response()
+    refreshed["total_queries"] = 7
+    pending[1].fulfill(json=refreshed)
+    expect(page.locator('[class*="statValue"]').first).to_have_text("7")
+
+
+@pytest.mark.parametrize(
+    ("status", "message"),
+    [
+        (500, "Unable to load usage. Please try again."),
+        (503, "Usage storage is not configured for this deployment."),
+    ],
+)
+def test_owner_usage_errors_are_not_empty_reports_and_can_retry(
+    page: Page, live_server_url: str, owner_settings, status, message
+):
+    calls = []
+
+    def usage(route: Route):
+        calls.append(route.request)
+        route.fulfill(
+            status=status if len(calls) == 1 else 200,
+            json={"error": "Private Cosmos diagnostic"} if len(calls) == 1 else usage_response(),
+        )
+
+    page.route("**/api/admin/analytics", usage)
+    page.goto(f"{live_server_url}#/admin")
+    page.get_by_role("button", name="Continue with Microsoft", exact=True).click()
+    page.get_by_role("tab", name="Usage", exact=True).click()
+    expect(page.get_by_text(message, exact=True)).to_be_visible()
+    expect(page.get_by_text("Private Cosmos diagnostic", exact=True)).to_have_count(0)
+    expect(page.locator('[class*="statCard"]')).to_have_count(0)
+    expect(page.get_by_text("No text-chat activity was recorded in this period.", exact=True)).to_have_count(0)
+    page.get_by_role("button", name="Load usage", exact=True).click()
+    expect(page.get_by_text("Sessions", exact=True)).to_be_visible()
+    expect(page.get_by_text(message, exact=True)).to_have_count(0)
+    assert len(calls) == 2
+
+
+def test_owner_usage_empty_data_has_zero_activity_without_fake_latency(
+    page: Page, live_server_url: str, owner_settings
+):
+    data = usage_response()
+    data.update(
+        total_queries=0,
+        total_sessions=0,
+        avg_response_time_ms=0,
+        example_question_rate=0,
+        error_count=0,
+        recent_activity=[],
+    )
+    for day in data["queries_by_day"]:
+        day["count"] = 0
+    page.route("**/api/admin/analytics", lambda route: route.fulfill(json=data))
+    page.goto(f"{live_server_url}#/admin")
+    page.get_by_role("button", name="Continue with Microsoft", exact=True).click()
+    page.get_by_role("tab", name="Usage", exact=True).click()
+    expect(page.get_by_text("No text-chat activity was recorded in this period.", exact=True)).to_be_visible()
+    expect(page.locator('[class*="statCard"]')).to_have_count(5)
+    expect(page.get_by_text("0ms", exact=True)).to_have_count(0)
+    chart = page.get_by_role("list", name="Daily text activity (UTC)", exact=True)
+    expect(chart.get_by_role("listitem")).to_have_count(31)
+    assert chart.locator("li > span").evaluate_all(
+        "bars => bars.every(bar => bar.getBoundingClientRect().height === 0)"
+    )
+
+
+@pytest.mark.parametrize("width", [1280, 390])
+def test_owner_usage_is_responsive_and_accessible(page: Page, live_server_url: str, owner_settings, width):
+    page.set_viewport_size({"width": width, "height": 1000})
+    page.route("**/api/admin/analytics", lambda route: route.fulfill(json=usage_response()))
+    page.goto(f"{live_server_url}#/admin")
+    page.get_by_role("button", name="Continue with Microsoft", exact=True).click()
+    page.get_by_role("tab", name="Usage", exact=True).click()
+    expect(page.get_by_role("heading", name="Text chat usage (last 30 days)", exact=True)).to_be_visible()
+    expect(page.locator('[class*="statCard"]')).to_have_count(5)
+    expect(page.get_by_role("button", name="Save changes", exact=True)).to_have_count(0)
+    chart = page.get_by_role("list", name="Daily text activity (UTC)", exact=True)
+    expect(chart.get_by_role("listitem")).to_have_count(31)
+    assert chart.evaluate(
+        "chart => Math.max(...Array.from(chart.querySelectorAll('li > span'), bar => bar.getBoundingClientRect().height)) === chart.clientHeight"
+    )
+    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+    results = Axe().run(page)
+    assert results.violations_count == 0, results.generate_report()
+    capture_screenshot(page, f"owner-usage-{width}")
+
+
+def test_owner_usage_inflight_request_is_cancelled_on_sign_out(page: Page, live_server_url: str, owner_settings):
+    pending = []
+    page.add_init_script("""window.usageAborts = 0;
+        const originalFetch = window.fetch.bind(window);
+        window.fetch = (...args) => {
+            if (args[0] === '/api/admin/analytics') {
+                args[1]?.signal?.addEventListener('abort', () => { window.usageAborts += 1; });
+            }
+            return originalFetch(...args);
+        };""")
+    page.route("**/api/admin/analytics", lambda route: pending.append(route))
+    page.goto(f"{live_server_url}#/admin")
+    page.get_by_role("button", name="Continue with Microsoft", exact=True).click()
+    page.get_by_role("tab", name="Usage", exact=True).click()
+    expect(page.get_by_text("Loading usage...", exact=True)).to_be_visible()
+    page.get_by_role("button", name="Sign out", exact=True).click()
+    expect(page.get_by_role("button", name="Continue with Microsoft", exact=True)).to_be_visible()
+    assert page.evaluate("window.usageAborts") == 1
+    page.get_by_role("button", name="Continue with Microsoft", exact=True).click()
+    page.get_by_role("tab", name="Usage", exact=True).click()
+    expect(page.get_by_text("Loading usage...", exact=True)).to_be_visible()
+    assert len(pending) == 2
+    pending[1].fulfill(json=usage_response())
+    expect(page.get_by_text("Sessions", exact=True)).to_be_visible()
+
+
+@pytest.mark.parametrize("action", ["Discard changes", "Save changes"])
+def test_owner_usage_keeps_unsaved_settings_controls(page: Page, live_server_url: str, owner_settings, action):
+    page.route("**/api/admin/analytics", lambda route: route.fulfill(json=usage_response()))
+    page.goto(f"{live_server_url}#/admin")
+    page.get_by_role("button", name="Continue with Microsoft", exact=True).click()
+    page.get_by_label("Assistant Name", exact=True).fill("An unsaved assistant")
+    page.get_by_role("tab", name="Usage", exact=True).click()
+    expect(page.get_by_text("Sessions", exact=True)).to_be_visible()
+    expect(page.get_by_role("button", name="Save changes", exact=True)).to_be_visible()
+    page.get_by_role("button", name=action, exact=True).click()
+    expect(page.get_by_role("button", name="Save changes", exact=True)).to_have_count(0)
+    expect(page.get_by_role("heading", name="Text chat usage (last 30 days)", exact=True)).to_be_focused()
+    page.get_by_role("tab", name="Personalize", exact=True).click()
+    expect(page.get_by_label("Assistant Name", exact=True)).to_have_value(owner_settings["settings"]["assistant_name"])
+    expect(page.get_by_role("button", name="Save changes", exact=True)).to_be_visible()
 
 
 def test_owner_sign_in_is_compact_branded_and_busy(page: Page, live_server_url: str, owner_settings):

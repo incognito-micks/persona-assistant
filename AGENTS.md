@@ -40,6 +40,7 @@ Preserve unrelated staged/working changes and respect delegated file ownership. 
 - Input transcription is a default Azure capability, not browser speech recognition. Forward bounded transcript text with validated `item_id`, correlate it to committed turns, and handle asynchronous ordering without duplicating replies or saving voice transcripts as text-chat history.
 - Shared admission failures must fail explicitly. Local fallback is not replica-global; never describe it as production-wide protection.
 - New analytics must not retain raw questions, owner identities, detailed model errors, or audio. Session metrics are not verified unique people. Reporting windows are not retention/deletion policies.
+- Owner Usage is text-chat-only, not voice, accuracy, visitor tracking, or billing. Use Cosmos-compatible projected paging, not unsupported async cross-partition aggregates/groups or capped samples. Keep only daily/session summaries and 20 recent safe metadata records; preserve explicit read failures and the real-SDK/mocked-gateway paging regression. Hosted validation is separate from mocked tests.
 - Do not remove existing analytics/settings or migrate personal data without explicit authorization.
 - Keep historical Cosmos-history ordering/batch/input-validation protections if touching retained compatibility code.
 - Do not add a provider/hosting/feature-toggle matrix. Profile fields and internal deployment outputs should not become mandatory user environment variables.

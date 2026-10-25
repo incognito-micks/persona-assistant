@@ -153,11 +153,12 @@ export async function getPublicStatus(signal?: AbortSignal): Promise<PublicStatu
     return (await response.json()) as PublicStatus;
 }
 
-export async function getAdminAnalytics(idToken: string): Promise<AnalyticsSummary> {
+export async function getAdminAnalytics(idToken: string, signal?: AbortSignal): Promise<AnalyticsSummary> {
     const headers = await getHeaders(idToken);
     const response = await fetch(`${BACKEND_URI}/api/admin/analytics`, {
         method: "GET",
-        headers: { ...headers, "Content-Type": "application/json" }
+        headers: { ...headers, "Content-Type": "application/json" },
+        signal
     });
 
     if (!response.ok) {

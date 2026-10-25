@@ -1,3 +1,4 @@
+import asyncio
 import json
 import threading
 from unittest import mock
@@ -10,7 +11,11 @@ from openai.types.chat import ChatCompletionChunk
 from quart import Response as QuartResponse
 
 import app
-from config import CONFIG_ADMIN_SETTINGS_CACHE, CONFIG_COSMOS_SETTINGS_CONTAINER
+from config import (
+    CONFIG_ADMIN_SETTINGS_CACHE,
+    CONFIG_COSMOS_ANALYTICS_CONTAINER,
+    CONFIG_COSMOS_SETTINGS_CONTAINER,
+)
 from core.authentication import AuthError
 from core.ratelimiter import RateLimiter
 
@@ -94,7 +99,43 @@ async def test_context_trimming_is_reported_to_the_client(client, route):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(("route", "method"), [("/chat", "run"), ("/chat/stream", "run_stream")])
+@pytest.mark.parametrize("failed", [False, True])
+async def test_chat_records_safe_usage_for_success_and_failure(client, monkeypatch, route, method, failed):
+    container = mock.AsyncMock()
+    client.app.config[CONFIG_COSMOS_ANALYTICS_CONTAINER] = container
+    if failed:
+        monkeypatch.setattr(
+            client.app.config[app.CONFIG_CHAT_APPROACH],
+            method,
+            mock.AsyncMock(side_effect=RuntimeError("Private model failure")),
+        )
+    response = await client.post(
+        route,
+        json={
+            "messages": [{"role": "user", "content": "Private visitor question"}],
+            "session_state": "usage-session",
+        },
+    )
+    assert response.status_code == (500 if failed else 200)
+    await response.get_data()
+    await asyncio.gather(*tuple(client.app.background_tasks))
+    container.upsert_item.assert_awaited_once()
+    record = container.upsert_item.await_args.args[0]
+    assert record["session_id"] == "usage-session"
+    assert record["user_oid"] == "session:usage-session"
+    assert record["message_index"] == 1
+    assert record["response_time_ms"] >= 0
+    assert record["error"] == ("request_failed" if failed else None)
+    assert "query" not in record and "confidence_level" not in record
+    assert "Private" not in str(record)
+
+
+@pytest.mark.asyncio
 async def test_midstream_error_still_uses_a_terminated_ndjson_error_event(client, monkeypatch):
+    container = mock.AsyncMock()
+    client.app.config[CONFIG_COSMOS_ANALYTICS_CONTAINER] = container
+
     async def fail_during_stream():
         yield ChatCompletionChunk.model_validate(
             {
@@ -120,6 +161,12 @@ async def test_midstream_error_still_uses_a_terminated_ndjson_error_event(client
     events = [json.loads(line) for line in body.splitlines()]
     assert any(event.get("delta", {}).get("content") == "Partial answer." for event in events)
     assert "ZeroDivisionError" in events[-1]["error"]
+    await asyncio.gather(*tuple(client.app.background_tasks))
+    container.upsert_item.assert_awaited_once()
+    record = container.upsert_item.await_args.args[0]
+    assert record["error"] == "request_failed"
+    assert record["response_length"] == len("Partial answer.")
+    assert "Failure after streaming" not in str(record)
 
 
 def fake_response(http_code):

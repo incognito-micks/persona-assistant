@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { useBlocker } from "react-router-dom";
 import {
     Pivot,
@@ -108,6 +108,16 @@ function Admin() {
     const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
     const [analyticsLoading, setAnalyticsLoading] = useState(false);
     const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState("settings");
+    const usageHeading = useRef<HTMLHeadingElement | null>(null);
+    const usageRequest = useRef<AbortController | null>(null);
+
+    useEffect(() => {
+        return () => {
+            usageRequest.current?.abort();
+            usageRequest.current = null;
+        };
+    }, []);
 
     const adminError = (failure: unknown, fallback: string) => {
         if (typeof failure === "object" && failure !== null && "errorCode" in failure) {
@@ -203,9 +213,14 @@ function Admin() {
         setSigningOut(true);
         try {
             await msalInstance.signOut();
+            usageRequest.current?.abort();
+            usageRequest.current = null;
             setSettings(null);
             setSavedSettings(null);
             setAnalytics(null);
+            setAnalyticsLoading(false);
+            setAnalyticsError(null);
+            setActiveTab("settings");
             setIsAuthenticated(false);
             setError(null);
             setSuccess(false);
@@ -264,6 +279,7 @@ function Admin() {
             setSettings(updated);
             setSavedSettings(updated);
             setSuccess(true);
+            if (activeTab === "usage") usageHeading.current?.focus();
             try {
                 await refreshPublicStatus();
             } catch {
@@ -306,21 +322,33 @@ function Admin() {
     };
 
     const loadAnalytics = async () => {
+        usageRequest.current?.abort();
+        const controller = new AbortController();
+        usageRequest.current = controller;
         try {
             setAnalyticsLoading(true);
             setAnalyticsError(null);
-            if (!msalInstance) return;
-            const token = await msalInstance.getToken();
+            const token = await msalInstance?.getToken();
+            if (controller.signal.aborted) return;
             if (!token) {
+                setAnalytics(null);
                 setAnalyticsError(t("admin.authRequired"));
                 return;
             }
-            const data = await getAdminAnalytics(token);
+            const data = await getAdminAnalytics(token, controller.signal);
+            if (controller.signal.aborted) return;
             setAnalytics(data);
         } catch (failure) {
-            setAnalyticsError(adminError(failure, "admin.analyticsError"));
+            if (controller.signal.aborted) return;
+            setAnalytics(null);
+            setAnalyticsError(
+                failure instanceof AdminApiError && failure.status === 503 ? t("admin.analyticsNotConfigured") : adminError(failure, "admin.analyticsError")
+            );
         } finally {
-            setAnalyticsLoading(false);
+            if (usageRequest.current === controller) {
+                usageRequest.current = null;
+                setAnalyticsLoading(false);
+            }
         }
     };
 
@@ -417,6 +445,9 @@ function Admin() {
         return new Date(ts).toLocaleString();
     };
 
+    const formatUsageDate = (date: string): string =>
+        new Date(`${date}T00:00:00Z`).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+
     if (authLoading) {
         return (
             <OwnerAccessCard>
@@ -492,6 +523,7 @@ function Admin() {
     }
 
     const fieldsDisabled = saving || signingOut;
+    const maxDailyQueries = Math.max(1, ...(analytics?.queries_by_day.map(day => day.count) ?? []));
 
     return (
         <div className={styles.adminContainer}>
@@ -530,8 +562,15 @@ function Admin() {
             {success && <MessageBar messageBarType={MessageBarType.success}>{t("admin.saved")}</MessageBar>}
             {saveWarning && <MessageBar messageBarType={MessageBarType.warning}>{t("admin.publicRefreshError")}</MessageBar>}
 
-            <Pivot aria-label={t("admin.settingsTitle")}>
-                <PivotItem headerText={t("admin.settingsTab")}>
+            <Pivot
+                aria-label={t("admin.settingsTitle")}
+                selectedKey={activeTab}
+                onLinkClick={item => {
+                    if (item?.props.itemKey) setActiveTab(item.props.itemKey);
+                    if (item?.props.itemKey === "usage" && !analytics && !analyticsLoading) void loadAnalytics();
+                }}
+            >
+                <PivotItem itemKey="settings" headerText={t("admin.settingsTab")}>
                     <div className={styles.editorGrid}>
                         <div className={styles.settingsForm}>
                             <section className={styles.settingsSection} aria-labelledby="owner-identity-title">
@@ -678,10 +717,12 @@ function Admin() {
                     </div>
                 </PivotItem>
 
-                <PivotItem headerText={t("admin.analyticsTab")}>
+                <PivotItem itemKey="usage" headerText={t("admin.analyticsTab")}>
                     <div className={styles.analyticsTab}>
                         <div className={styles.analyticsHeader}>
-                            <h3>{t("admin.analyticsTitle")}</h3>
+                            <h2 ref={usageHeading} tabIndex={-1}>
+                                {t("admin.analyticsTitle")}
+                            </h2>
                             <DefaultButton
                                 text={t("admin.refresh")}
                                 onRenderIcon={() => <ArrowSync20Regular aria-hidden className={styles.buttonIcon} />}
@@ -702,101 +743,70 @@ function Admin() {
                             </div>
                         ) : (
                             <div className={styles.analyticsContent}>
+                                {analytics.total_queries === 0 && <p role="status">{t("admin.analyticsNoActivity")}</p>}
                                 <div className={styles.statsGrid}>
                                     <div className={styles.statCard}>
                                         <div className={styles.statValue}>{analytics.total_queries}</div>
                                         <div className={styles.statLabel}>{t("admin.metrics.queries")}</div>
                                     </div>
                                     <div className={styles.statCard}>
-                                        <div className={styles.statValue}>{analytics.unique_users}</div>
+                                        <div className={styles.statValue}>{analytics.total_sessions}</div>
                                         <div className={styles.statLabel}>{t("admin.metrics.sessions")}</div>
                                     </div>
                                     <div className={styles.statCard}>
-                                        <div className={styles.statValue}>{analytics.avg_response_time_ms}ms</div>
+                                        <div className={styles.statValue}>{analytics.total_queries ? `${analytics.avg_response_time_ms}ms` : "-"}</div>
                                         <div className={styles.statLabel}>{t("admin.metrics.responseTime")}</div>
                                     </div>
                                     <div className={styles.statCard}>
-                                        <div className={styles.statValue}>{analytics.avg_session_depth}</div>
-                                        <div className={styles.statLabel}>{t("admin.metrics.sessionDepth")}</div>
-                                    </div>
-                                    <div className={styles.statCard}>
-                                        <div className={styles.statValue}>{analytics.example_question_rate}%</div>
+                                        <div className={styles.statValue}>{analytics.total_queries ? `${analytics.example_question_rate}%` : "-"}</div>
                                         <div className={styles.statLabel}>{t("admin.metrics.examples")}</div>
-                                    </div>
-                                    <div className={styles.statCard}>
-                                        <div className={styles.statValue}>{analytics.confidence_distribution.high}</div>
-                                        <div className={styles.statLabel}>{t("admin.metrics.highConfidence")}</div>
-                                    </div>
-                                    <div className={styles.statCard}>
-                                        <div className={styles.statValue}>{analytics.confidence_distribution.low}</div>
-                                        <div className={styles.statLabel}>{t("admin.metrics.lowConfidence")}</div>
                                     </div>
                                     <div className={styles.statCard}>
                                         <div className={styles.statValue}>{analytics.error_count}</div>
                                         <div className={styles.statLabel}>{t("admin.metrics.errors")}</div>
                                     </div>
                                 </div>
+                                <p className={styles.helpText}>{t("admin.usageResponseTimeHelp")}</p>
 
-                                <div className={styles.confidenceBar}>
-                                    <h4>{t("admin.confidenceTitle")}</h4>
-                                    <div className={styles.barContainer}>
-                                        {analytics.total_queries > 0 && (
-                                            <>
-                                                <div
-                                                    className={styles.barSegmentHigh}
-                                                    style={{ width: `${(analytics.confidence_distribution.high / analytics.total_queries) * 100}%` }}
-                                                    title={`${t("admin.confidence.high")}: ${analytics.confidence_distribution.high}`}
+                                <section className={styles.dailyActivity} aria-labelledby="usage-daily-title">
+                                    <h3 id="usage-daily-title">{t("admin.dailyActivity")}</h3>
+                                    <ol className={styles.activityChart} role="list" aria-label={t("admin.dailyActivity")}>
+                                        {analytics.queries_by_day.map(day => (
+                                            <li
+                                                key={day.date}
+                                                title={t("admin.dailyCount", { date: formatUsageDate(day.date), count: day.count })}
+                                                aria-label={t("admin.dailyCount", { date: formatUsageDate(day.date), count: day.count })}
+                                            >
+                                                <span
+                                                    className={styles.activityBar}
+                                                    style={{ height: `${(day.count / maxDailyQueries) * 100}%` }}
+                                                    aria-hidden
                                                 />
-                                                <div
-                                                    className={styles.barSegmentMedium}
-                                                    style={{ width: `${(analytics.confidence_distribution.medium / analytics.total_queries) * 100}%` }}
-                                                    title={`${t("admin.confidence.medium")}: ${analytics.confidence_distribution.medium}`}
-                                                />
-                                                <div
-                                                    className={styles.barSegmentLow}
-                                                    style={{ width: `${(analytics.confidence_distribution.low / analytics.total_queries) * 100}%` }}
-                                                    title={`${t("admin.confidence.low")}: ${analytics.confidence_distribution.low}`}
-                                                />
-                                                <div
-                                                    className={styles.barSegmentUnknown}
-                                                    style={{ width: `${(analytics.confidence_distribution.unknown / analytics.total_queries) * 100}%` }}
-                                                    title={`${t("admin.confidence.unknown")}: ${analytics.confidence_distribution.unknown}`}
-                                                />
-                                            </>
-                                        )}
-                                    </div>
-                                    <div className={styles.barLegend}>
-                                        <span className={styles.legendItem}>
-                                            <span className={styles.legendDotHigh} /> {t("admin.confidence.high")} ({analytics.confidence_distribution.high})
-                                        </span>
-                                        <span className={styles.legendItem}>
-                                            <span className={styles.legendDotMedium} /> {t("admin.confidence.medium")} (
-                                            {analytics.confidence_distribution.medium})
-                                        </span>
-                                        <span className={styles.legendItem}>
-                                            <span className={styles.legendDotLow} /> {t("admin.confidence.low")} ({analytics.confidence_distribution.low})
-                                        </span>
-                                        <span className={styles.legendItem}>
-                                            <span className={styles.legendDotUnknown} /> {t("admin.confidence.unknown")} (
-                                            {analytics.confidence_distribution.unknown})
-                                        </span>
-                                    </div>
-                                </div>
+                                            </li>
+                                        ))}
+                                    </ol>
+                                    {analytics.queries_by_day.length > 0 && (
+                                        <div className={styles.activityRange} aria-hidden>
+                                            <span>{formatUsageDate(analytics.queries_by_day[0].date)}</span>
+                                            <span>{formatUsageDate(analytics.queries_by_day[analytics.queries_by_day.length - 1].date)}</span>
+                                        </div>
+                                    )}
+                                </section>
 
-                                {analytics.recent_queries.length > 0 && (
+                                {analytics.recent_activity.length > 0 && (
                                     <div className={styles.recentQueries}>
-                                        <h4>{t("admin.recentActivity")}</h4>
+                                        <h3>{t("admin.recentActivity")}</h3>
                                         <div className={styles.queryList}>
-                                            {analytics.recent_queries.map((q, i) => (
+                                            {analytics.recent_activity.map((q, i) => (
                                                 <div key={i} className={styles.queryItem}>
                                                     <div className={styles.queryText}>{t("admin.chatRequest")}</div>
                                                     <div className={styles.queryMeta}>
-                                                        <span className={`${styles.confidenceTag} ${styles[`confidence_${q.confidence_level}`]}`}>
-                                                            {t(`admin.confidence.${q.confidence_level}`, { defaultValue: t("admin.confidence.unknown") })}
+                                                        <span className={q.failed ? styles.queryError : undefined}>
+                                                            {t(q.failed ? "admin.requestFailed" : "admin.requestSucceeded")}
                                                         </span>
+                                                        {q.is_example_question && <span>{t("admin.exampleRequest")}</span>}
                                                         <span>{q.response_time_ms}ms</span>
                                                         <span>{formatTimestamp(q.timestamp)}</span>
-                                                        {q.error && <span className={styles.queryError}>{t("admin.requestFailed")}</span>}
                                                     </div>
                                                 </div>
                                             ))}
@@ -808,7 +818,7 @@ function Admin() {
                     </div>
                 </PivotItem>
             </Pivot>
-            <div className={styles.saveBar} role="region" aria-label={t("admin.saveBarLabel")}>
+            <div className={styles.saveBar} hidden={activeTab === "usage" && !hasChanges && !saving} role="region" aria-label={t("admin.saveBarLabel")}>
                 <span className={styles.saveStatus} role="status">
                     {hasChanges ? <Edit20Regular aria-hidden /> : <Checkmark20Regular aria-hidden />}
                     <span>{t(saving ? "admin.saving" : hasChanges ? "admin.unsaved" : "admin.allSaved")}</span>
@@ -822,6 +832,7 @@ function Admin() {
                             setSuccess(false);
                             setSaveWarning(false);
                             if (!conflict) setError(null);
+                            if (activeTab === "usage") usageHeading.current?.focus();
                         }}
                     />
                     <PrimaryButton

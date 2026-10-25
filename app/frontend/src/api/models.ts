@@ -124,20 +124,15 @@ export type PublicStatus = {
 
 export type AnalyticsSummary = {
     total_queries: number;
+    total_sessions: number;
     avg_response_time_ms: number;
     queries_by_day: { date: string; count: number }[];
-    confidence_distribution: { high: number; medium: number; low: number; unknown: number };
-    recent_queries: {
-        query?: string;
-        confidence_level: string;
+    recent_activity: {
         response_time_ms: number;
         timestamp: number;
-        error?: string;
-        is_example_question?: boolean;
-        message_index?: number;
+        failed: boolean;
+        is_example_question: boolean;
     }[];
-    unique_users: number;
     example_question_rate: number;
-    avg_session_depth: number;
     error_count: number;
 };

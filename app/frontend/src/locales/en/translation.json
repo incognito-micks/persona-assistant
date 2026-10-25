@@ -314,32 +314,29 @@
         "examplesHelp": "One question per line, up to 8. Keep at least one nonempty question.",
         "removeFunFact": "Remove fact {{number}}",
         "addFunFact": "Add Fun Fact",
-        "analyticsTitle": "Usage Analytics (Last 30 Days)",
-        "analyticsPrivacy": "Raw questions and visitor identities are not retained. Session counts are not counts of unique people.",
+        "analyticsTitle": "Text chat usage (last 30 days)",
+        "analyticsPrivacy": "Text chat only; voice and site visits are not included. New usage records omit questions, answers and visitor identities. Sessions are conversations, not unique people.",
         "refresh": "Refresh",
-        "analyticsLoading": "Loading analytics...",
-        "analyticsEmpty": "Click Refresh to load analytics data.",
-        "loadAnalytics": "Load Analytics",
-        "analyticsError": "Unable to load analytics. Please try again.",
+        "analyticsLoading": "Loading usage...",
+        "analyticsEmpty": "No usage report is loaded.",
+        "loadAnalytics": "Load usage",
+        "analyticsError": "Unable to load usage. Please try again.",
+        "analyticsNotConfigured": "Usage storage is not configured for this deployment.",
+        "analyticsNoActivity": "No text-chat activity was recorded in this period.",
+        "usageResponseTimeHelp": "Recorded durations include the complete streamed reply, not just time to first token. Rejected requests are not counted.",
+        "dailyActivity": "Daily text activity (UTC)",
+        "dailyCount": "{{date}} - text requests: {{count}}",
         "metrics": {
-            "queries": "Total Queries",
+            "queries": "Text requests",
             "sessions": "Sessions",
-            "responseTime": "Avg Response Time",
-            "sessionDepth": "Avg Session Depth",
-            "examples": "Example Click Rate",
-            "highConfidence": "High Confidence",
-            "lowConfidence": "Low Confidence",
-            "errors": "Errors"
+            "responseTime": "Avg request duration",
+            "examples": "Suggested-question requests",
+            "errors": "Recorded failures"
         },
-        "confidenceTitle": "Confidence Distribution",
-        "confidence": {
-            "high": "High",
-            "medium": "Medium",
-            "low": "Low",
-            "unknown": "Unknown"
-        },
-        "recentActivity": "Recent Activity",
-        "chatRequest": "Chat request",
-        "requestFailed": "Failed"
+        "recentActivity": "Recent text activity",
+        "chatRequest": "Text request",
+        "requestFailed": "Failed",
+        "requestSucceeded": "Completed",
+        "exampleRequest": "Suggested question"
     }
 }
