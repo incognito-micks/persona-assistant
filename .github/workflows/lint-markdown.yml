@@ -14,9 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Run markdownlint-cli2
-        uses: DavidAnson/markdownlint-cli2-action@v21
+        uses: DavidAnson/markdownlint-cli2-action@v24
         with:
           config: .markdownlint-cli2.jsonc
           globs: |
