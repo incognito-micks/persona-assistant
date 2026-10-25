@@ -19,6 +19,7 @@ from approaches.approach import (
     ThoughtStep,
 )
 from approaches.promptmanager import PromptManager
+from core.knowledgebase import render_knowledge_sources
 from core.profile import build_persona_instructions
 
 
@@ -363,6 +364,9 @@ class PersonaChatApproach(Approach):
             )
         else:
             extra_info = self.run_direct_context_approach()
+
+        if extra_info.data_points.text is not None:
+            extra_info.data_points.text = render_knowledge_sources(extra_info.data_points.text)
 
         # Add thought step for URL fetch if applicable
         if fetched_url and jd_text:

@@ -22,6 +22,7 @@ from config import (
     CONFIG_REALTIME_VOICE,
 )
 from core.authentication import AuthError
+from core.knowledgebase import render_knowledge_sources
 from core.profile import build_persona_instructions
 from core.ratelimiter import check_rate_limit
 from core.voiceusage import (
@@ -241,7 +242,7 @@ def build_system_instructions(admin_settings: dict[str, Any], knowledge_sources:
         + "\nThis is a voice conversation. Speak naturally in brief, clear sentences, not a written essay. "
         "Do not read markdown, source filenames, or citations aloud. "
         "When asked about a role, briefly explain supported strengths and honest gaps without inventing experience.\n"
-        "\n## Knowledge Sources\n" + "\n\n".join(knowledge_sources)
+        "\n## Knowledge Sources\n" + "\n\n".join(render_knowledge_sources(knowledge_sources))
     )
     instruction_budget = min(REALTIME_TOKEN_BUDGET, REALTIME_CONTEXT_TOKENS)
     instruction_budget -= MAX_RESPONSE_OUTPUT_TOKENS + TOKEN_SAFETY_HEADROOM

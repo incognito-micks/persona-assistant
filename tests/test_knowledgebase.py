@@ -3,14 +3,77 @@ import os
 import shutil
 import subprocess
 import sys
+from datetime import UTC, date, datetime
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 import yaml
 
 from core import knowledgebase
-from core.knowledgebase import get_knowledge_base_path, load_knowledge_base
+from core.knowledgebase import (
+    get_knowledge_base_path,
+    load_knowledge_base,
+    render_knowledge_sources,
+)
 from package_knowledge import package_knowledge_base
+
+
+@pytest.mark.parametrize(
+    ("start", "today", "expected"),
+    [
+        ("2025-03", date(2025, 3, 31), "less than one month"),
+        ("2025-02", date(2025, 3, 1), "1 month"),
+        ("2024-03", date(2025, 3, 31), "1 year"),
+        ("2024-02", date(2025, 3, 1), "1 year and 1 month"),
+        ("2023-01", date(2025, 3, 1), "2 years and 2 months"),
+        ("2020-02", date(2024, 2, 29), "4 years"),
+        ("2025-12", date(2026, 1, 1), "1 month"),
+    ],
+)
+def test_knowledge_elapsed_dates_use_calendar_month_precision(start, today, expected):
+    source = f"Tenure [[elapsed:{start}]], as of [[today]]."
+    assert render_knowledge_sources([source], today) == [f"Tenure {expected}, as of {today.isoformat()}."]
+
+
+def test_knowledge_dates_refresh_without_mutating_cached_sources(monkeypatch):
+    clock = Mock()
+    monkeypatch.setattr(knowledgebase, "datetime", clock)
+    sources = ["As of [[today]]: [[elapsed:2024-03]].", "Literal {{ 7 * 7 }} is not executed."]
+    clock.now.return_value = datetime(2025, 3, 31, tzinfo=UTC)
+    assert render_knowledge_sources(sources)[0] == "As of 2025-03-31: 1 year."
+    clock.now.return_value = datetime(2025, 4, 1, tzinfo=UTC)
+    assert render_knowledge_sources(sources)[0] == "As of 2025-04-01: 1 year and 1 month."
+    assert sources[0] == "As of [[today]]: [[elapsed:2024-03]]."
+    assert render_knowledge_sources(sources)[1] == sources[1]
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        "[[elapsed:2025-00]]",
+        "[[elapsed:0000-03]]",
+        "[[elapsed:2025-13]]",
+        "[[elapsed:2025-3]]",
+        "[[elapsed:2025-03]",
+        "[[elapsed:9999-01]]",
+    ],
+)
+def test_knowledge_rejects_invalid_elapsed_tokens_before_packaging(tmp_path, token):
+    source = tmp_path / "source.md"
+    source.write_text(token, encoding="utf-8")
+    with pytest.raises(ValueError, match="Knowledge"):
+        load_knowledge_base(str(tmp_path))
+
+
+def test_packaging_retains_date_tokens_for_later_requests(tmp_path):
+    source = tmp_path / "source"
+    destination = tmp_path / "bundle"
+    source.mkdir()
+    text = "Started March 2019: [[elapsed:2019-03]], as of [[today]]."
+    (source / "career.md").write_text(text, encoding="utf-8")
+    assert package_knowledge_base(source, destination) == 1
+    assert (destination / "career.md").read_text() == text
 
 
 def test_missing_knowledge_directory_fails(tmp_path):

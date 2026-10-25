@@ -2,6 +2,7 @@ import asyncio
 import base64
 import json
 from contextlib import AsyncExitStack
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, Mock
 
@@ -19,6 +20,7 @@ from config import (
     CONFIG_PUBLIC_ACCESS_ENABLED,
     CONFIG_PUBLIC_USAGE_LIMITER,
 )
+from core import knowledgebase
 from core.authentication import AuthError
 from core.profile import build_persona_instructions
 from core.ratelimiter import RateLimiter, check_rate_limit
@@ -995,6 +997,27 @@ async def test_upstream_setup_failures_refund_voice_admission(realtime_app, fail
     await assert_connection_rejected(realtime_app, 1011)
     assert realtime_app.app.config[VOICE_USAGE_LOCAL_KEY].record["admitted"] == 0
     assert realtime_app.app.config[VOICE_USAGE_LOCAL_KEY].record["leases"] == {}
+
+
+def test_voice_resolves_knowledge_dates_for_each_session_and_budgets_rendered_text(monkeypatch):
+    clock = Mock()
+    monkeypatch.setattr(knowledgebase, "datetime", clock)
+    sources = ["Since March 2019: [[elapsed:2019-03]], as of [[today]]."]
+    clock.now.return_value = datetime(2025, 3, 31, tzinfo=UTC)
+    first = relay.build_system_instructions({}, sources)
+    assert "6 years, as of 2025-03-31" in first
+    clock.now.return_value = datetime(2025, 4, 1, tzinfo=UTC)
+    second = relay.build_system_instructions({}, sources)
+    assert "6 years and 1 month, as of 2025-04-01" in second
+    assert "[[elapsed:" not in second and "[[today]]" not in second
+    assert sources == ["Since March 2019: [[elapsed:2019-03]], as of [[today]]."]
+    count = len(tiktoken.get_encoding("o200k_base").encode(second, disallowed_special=()))
+    reserve = relay.MAX_RESPONSE_OUTPUT_TOKENS + relay.TOKEN_SAFETY_HEADROOM
+    monkeypatch.setattr(relay, "REALTIME_TOKEN_BUDGET", count + reserve)
+    assert relay.build_system_instructions({}, sources) == second
+    monkeypatch.setattr(relay, "REALTIME_TOKEN_BUDGET", count + reserve - 1)
+    with pytest.raises(relay.RealtimeProtocolError, match="token budget"):
+        relay.build_system_instructions({}, sources)
 
 
 def test_voice_instructions_use_common_profile_and_every_complete_source():

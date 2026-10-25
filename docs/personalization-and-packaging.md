@@ -12,6 +12,14 @@ The profile validator rejects unknown fields, malformed values, unsafe image/lin
 
 The markdown loader sorts filenames, skips empty files, and formats each source with a filename label. It fails for missing, empty, or unreadable required knowledge. Nested files and non-markdown content are not ingested.
 
+## Time-Sensitive Knowledge
+
+Trusted markdown supports `[[today]]` for the current UTC date and `[[elapsed:YYYY-MM]]` for a calendar-month duration. For example, `Experience since March 2019: approximately [[elapsed:2019-03]], as of [[today]].` Use "approximately" when the exact start day is unknown. Overlapping roles must not be added together.
+
+The loader validates these tokens but retains the raw source. Text chat and realtime voice resolve them anew for each request/session before token budgeting; dates are not frozen during packaging or backend startup. Invalid tokens, invalid months, and future elapsed start months fail explicitly. This is a limited date formatter, not arbitrary template/code execution.
+
+Keep fixed achievement counts attached to their reporting period; do not make historical funding, audience, or project metrics grow with elapsed time.
+
 ## Template Contributions Versus Personal Deployments
 
 The reusable template and your deployed persona have different publication needs:

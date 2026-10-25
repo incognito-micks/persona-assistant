@@ -1,4 +1,5 @@
 from copy import deepcopy
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, Mock
 
 import prompty
@@ -11,8 +12,33 @@ from approaches.approach import (
     ThoughtStep,
 )
 from approaches.chat import PersonaChatApproach
+from core import knowledgebase
 from core.profile import build_persona_instructions
 from error import PromptTooLargeError
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("question", ["Tell me about your career", "hello", "thanks", "Can I contact you?"])
+async def test_chat_resolves_knowledge_dates_per_request_without_freezing_sources(chat_approach, monkeypatch, question):
+    clock = Mock()
+    monkeypatch.setattr(knowledgebase, "datetime", clock)
+    source = "Since March 2019: [[elapsed:2019-03]], as of [[today]]."
+    chat_approach.knowledge_sources = [source]
+    chat_approach.openai_client = AsyncMock()
+    for now, expected in [
+        (datetime(2025, 3, 31, tzinfo=UTC), "6 years, as of 2025-03-31"),
+        (datetime(2025, 4, 1, tzinfo=UTC), "6 years and 1 month, as of 2025-04-01"),
+    ]:
+        clock.now.return_value = now
+        extra_info, completion = await chat_approach.run_until_final_call(
+            [{"role": "user", "content": question}], {}, {}
+        )
+        await completion
+        messages = chat_approach.openai_client.chat.completions.create.await_args.kwargs["messages"]
+        assert expected in messages[-1]["content"]
+        assert "[[elapsed:" not in messages[-1]["content"]
+        assert expected in extra_info.data_points.text[0]
+        assert chat_approach.knowledge_sources == [source]
 
 
 def test_personalized_prompt_renders_knowledge(chat_approach):
