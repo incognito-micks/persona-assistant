@@ -103,6 +103,8 @@ Regenerate dependency locks with package tooling and `--python-version 3.11`; pr
 
 No cloud provisioning, deployment, remote builds, identity changes, publishing, or commits without explicit authorization. Follow [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and the [pull-request template](.github/PULL_REQUEST_TEMPLATE.md).
 
+The template's required `CI readiness` check must run on every main-branch PR, including documentation/workflow-only changes. Keep its compatibility matrix and reusable Markdown validation prerequisites mandatory; failures, cancellations, or skipped prerequisites must fail the gate. Public CI is not authorization to run the separate manual Azure deployment workflow.
+
 For authorized Azure work, use the explicit target environment and separate `az`/`azd` authentication checks in [operations](docs/operations.md). Never infer the intended subscription or teardown target from a previously selected default environment.
 
 Use the manifest's minimum supported azd version for real deployment; the validated remote build requires azd 1.37.1 or newer. A local Bicep compilation cannot prove Container Apps API acceptance: disabling saved environment logs uses a null `appLogsConfiguration`, not the rejected literal destination `"none"`.

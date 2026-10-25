@@ -20,6 +20,8 @@ This project descends from [Azure Search OpenAI Demo](https://github.com/Azure-S
 
 The application code, general technical documentation, fictional examples, and project-created generic images are available under the MIT license; see the [template asset declaration](docs/personalization-and-packaging.md#template-asset-provenance-and-licensing). Personal content added to a deliberately personalized fork may have separate, explicitly scoped terms. Third-party components retain their own licenses, and Azure services/models remain subject to their service terms and charges. Review those terms before redistributing bundled components or container images.
 
+Public-template CI runs the compatibility matrix and reusable Markdown validation for every main-branch pull request, including documentation-only changes. The stable **CI readiness** check passes only when both prerequisites succeed; it is the required merge check rather than a path-filtered workflow that may never start. The Python-check workflow can also be run manually without Azure sign-in, provisioning, or application deployment.
+
 ## Personalize
 
 1. Edit [profile.json](profile.json): owner and assistant names, introduction, tone, images, optional contact links, and example questions.

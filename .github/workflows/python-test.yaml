@@ -3,19 +3,13 @@ name: Python check
 on:
   push:
     branches: [ main ]
-    paths-ignore:
-      - "**.md"
-      - ".azdo/**"
-      - ".devcontainer/**"
-      - ".github/**"
   pull_request:
     branches: [ main ]
-    paths-ignore:
-      - "**.md"
-      - ".azdo/**"
-      - ".devcontainer/**"
-      - ".github/**"
+  workflow_dispatch:
   workflow_call:
+
+permissions:
+  contents: read
 
 jobs:
   test_package:
@@ -48,6 +42,7 @@ jobs:
           run: |
             cd ./app/frontend
             npm ci
+            npx prettier --check .
             npm run build
         - name: Check i18n translations
           run: npx -y @lingual/i18n-check@0.8.12 --locales app/frontend/src/locales -s en -f i18next -r summary
@@ -91,3 +86,31 @@ jobs:
           with:
             name: playwright-traces${{ matrix.python_version }}
             path: test-results
+
+  markdown:
+    uses: ./.github/workflows/lint-markdown.yml
+
+  readiness:
+    name: CI readiness
+    needs: [test_package, markdown]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require successful compatibility and documentation checks
+        env:
+          MATRIX_RESULT: ${{ needs.test_package.result }}
+          MARKDOWN_RESULT: ${{ needs.markdown.result }}
+        run: |
+          python - <<'PY'
+          import os
+          import sys
+
+          results = {
+              "compatibility matrix": os.environ["MATRIX_RESULT"],
+              "Markdown validation": os.environ["MARKDOWN_RESULT"],
+          }
+          if any(result != "success" for result in results.values()):
+              print(f"::error::Required CI checks did not pass: {results}")
+              sys.exit(1)
+          print("All required CI checks passed.")
+          PY

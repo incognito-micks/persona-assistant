@@ -1,7 +1,9 @@
 import json
+import os
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -68,6 +70,54 @@ def test_python_ci_bootstraps_public_modules_before_offline_infrastructure_tests
     assert restore["if"] == "runner.os != 'Windows'"
     assert restore["run"] == "az bicep restore --file infra/main.bicep"
     assert names.index(restore["name"]) < names.index("Run Python tests")
+
+
+def test_required_ci_gate_runs_for_every_main_pr_and_reuses_documentation_checks():
+    workflow = yaml.load((ROOT / ".github/workflows/python-test.yaml").read_text(), Loader=yaml.BaseLoader)
+    assert set(workflow["on"]) == {"push", "pull_request", "workflow_dispatch", "workflow_call"}
+    for event in ("push", "pull_request"):
+        assert workflow["on"][event]["branches"] == ["main"]
+        assert "paths" not in workflow["on"][event]
+        assert "paths-ignore" not in workflow["on"][event]
+    assert workflow["permissions"] == {"contents": "read"}
+    gate = workflow["jobs"]["readiness"]
+    assert gate["name"] == "CI readiness"
+    assert set(gate["needs"]) == {"test_package", "markdown"}
+    assert gate["if"] == "${{ always() }}"
+    assert gate["runs-on"] == "ubuntu-latest"
+    assert workflow["jobs"]["markdown"]["uses"] == "./.github/workflows/lint-markdown.yml"
+    markdown = yaml.load((ROOT / ".github/workflows/lint-markdown.yml").read_text(), Loader=yaml.BaseLoader)
+    assert "workflow_call" in markdown["on"]
+    build = next(step for step in workflow["jobs"]["test_package"]["steps"] if step.get("name") == "Build frontend")
+    assert "npx prettier --check ." in build["run"]
+
+
+@pytest.mark.parametrize(
+    ("matrix", "markdown", "expected"),
+    [
+        ("success", "success", 0),
+        ("failure", "success", 1),
+        ("success", "failure", 1),
+        ("cancelled", "success", 1),
+        ("skipped", "success", 1),
+        ("success", "skipped", 1),
+        ("", "success", 1),
+    ],
+)
+def test_required_ci_gate_rejects_failed_cancelled_or_skipped_prerequisites(matrix, markdown, expected):
+    workflow = yaml.safe_load((ROOT / ".github/workflows/python-test.yaml").read_text())
+    shell = workflow["jobs"]["readiness"]["steps"][0]["run"]
+    script = shell.split("python - <<'PY'\n", 1)[1].rsplit("\nPY", 1)[0]
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        env={**os.environ, "MATRIX_RESULT": matrix, "MARKDOWN_RESULT": markdown},
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    assert result.returncode == expected, result.stderr
+    assert ("::error::" in result.stdout) is (expected != 0)
 
 
 def test_owner_redirect_hook_is_inline_and_safe_for_workspace_paths_with_spaces():
