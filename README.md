@@ -41,7 +41,9 @@ For private source files outside the checkout, set `PROFILE_PATH` and `KNOWLEDGE
 
 ## Chat Workspace
 
-When browser history is enabled, desktop history appears beside the conversation and can be collapsed. On smaller screens, **Open chat history** opens a focus-trapped drawer that closes with Escape. History stays in the same browser-local store; it is not an account or cloud-sync feature. Older conversations load in pages.
+When browser history is enabled, it starts collapsed. **Open chat history** opens a sidebar beside the conversation on desktop or a focus-trapped drawer on smaller screens; the drawer closes with Escape. History stays in the same browser-local store; it is not an account or cloud-sync feature. Older conversations load in pages.
+
+**New chat** remains available in the history panel. When the panel is closed, a toolbar shortcut appears only after a conversation has started, including pending or failed replies. The empty welcome screen has no restart shortcut.
 
 **New chat** cancels a pending reply, clears the current conversation and unsent draft, and starts with fresh session state. It does not delete saved conversations. Deleting a saved conversation is a separate confirmed action; deleting the currently displayed conversation returns to a new chat.
 

@@ -420,12 +420,13 @@ def test_home(page: Page, live_server_url: str):
     expect(page).to_have_title("Alex's AI assistant")
     expect(page.get_by_role("main").get_by_alt_text("Alex Morgan's avatar", exact=True)).to_be_visible()
     expect(page.get_by_placeholder("Type a question", exact=True)).to_be_visible()
-    expect(page.get_by_role("button", name="New chat", exact=True)).to_be_enabled()
+    expect(page.get_by_role("button", name="New chat", exact=True)).to_have_count(0)
     expect(page.get_by_role("link", name="Owner workspace", exact=True)).to_have_count(0)
     expect(page.get_by_role("button", name="Submit question")).to_be_disabled()
     expect(page.get_by_role("button", name="Developer settings")).to_have_count(0)
     expect(page.get_by_role("button", name="Open chat history")).to_have_count(0)
     expect(page.get_by_role("button", name="Ask question with voice")).to_have_count(0)
+    expect(page.locator('[class*="toolbar"]')).to_have_count(0)
     page.get_by_role("textbox").fill("   ")
     expect(page.get_by_role("button", name="Submit question")).to_be_disabled()
 
@@ -1446,7 +1447,8 @@ def test_nonstreaming_uses_chat_endpoint(page: Page, live_server_url: str, api_c
     page.get_by_role("button", name="New chat", exact=True).click()
     expect(page.get_by_text(ANSWER, exact=True)).to_have_count(0)
     expect(page.get_by_text(QUESTION, exact=True)).to_have_count(0)
-    expect(page.get_by_role("button", name="New chat", exact=True)).to_be_enabled()
+    expect(page.get_by_role("button", name="New chat", exact=True)).to_have_count(0)
+    expect(page.get_by_role("textbox", name="Your message", exact=True)).to_be_focused()
 
 
 def test_config_failure_blocks_send_until_retry_succeeds(page: Page, live_server_url: str, api_config):
@@ -1482,7 +1484,10 @@ def test_config_failure_blocks_send_until_retry_succeeds(page: Page, live_server
 
 
 @pytest.mark.parametrize("streaming", [True, False], ids=["stream-error", "http-error"])
-def test_chat_failure_can_retry(page: Page, live_server_url: str, api_config, streaming: bool):
+@pytest.mark.parametrize("recovery", ["retry", "new-chat"])
+def test_chat_failure_can_retry_or_start_new_chat(
+    page: Page, live_server_url: str, api_config, streaming: bool, recovery
+):
     api_config["streamingEnabled"] = streaming
     captured = []
 
@@ -1491,7 +1496,8 @@ def test_chat_failure_can_retry(page: Page, live_server_url: str, api_config, st
         if len(captured) == 1:
             if streaming:
                 route.fulfill(
-                    content_type="application/x-ndjson", body=json.dumps({"error": "Mock stream failed"}) + "\n"
+                    content_type="application/x-ndjson",
+                    body=json.dumps({"error": "Mock stream failed"}) + "\n",
                 )
             else:
                 route.fulfill(status=503, json={"error": "Mock service unavailable"})
@@ -1503,12 +1509,24 @@ def test_chat_failure_can_retry(page: Page, live_server_url: str, api_config, st
     page.route(re.compile(r"/chat(?:/stream)?$"), handle)
     page.goto(live_server_url)
     send_question(page)
-    expect_app_text(page, re.compile("Mock stream failed" if streaming else "Mock service unavailable"))
-    page.get_by_role("button", name="Retry", exact=True).click()
-    expect_app_text(page, ANSWER)
-    expect(page.get_by_role("button", name="Retry", exact=True)).to_have_count(0)
-    assert len(captured) == 2
-    assert captured[0] == captured[1]
+    expect_app_text(
+        page,
+        re.compile("Mock stream failed" if streaming else "Mock service unavailable"),
+    )
+    expect(page.get_by_role("button", name="New chat", exact=True)).to_be_enabled()
+    if recovery == "retry":
+        page.get_by_role("button", name="Retry", exact=True).click()
+        expect_app_text(page, ANSWER)
+        expect(page.get_by_role("button", name="Retry", exact=True)).to_have_count(0)
+        assert len(captured) == 2
+        assert captured[0] == captured[1]
+    else:
+        page.get_by_role("button", name="New chat", exact=True).press("Enter")
+        expect(page.get_by_role("button", name="Retry", exact=True)).to_have_count(0)
+        expect(page.get_by_role("button", name="New chat", exact=True)).to_have_count(0)
+        expect(page.get_by_role("heading", name="Alex's AI assistant", level=1, exact=True)).to_be_visible()
+        expect(page.get_by_role("textbox", name="Your message", exact=True)).to_be_focused()
+        assert len(captured) == 1
 
 
 @pytest.mark.parametrize("streaming", [True, False])
@@ -1571,12 +1589,20 @@ def pending_chat_stream(page: Page):
         })();""")
 
 
-def test_clear_pending_stream_cancels_stale_answer(page: Page, live_server_url: str, api_config, pending_chat_stream):
+@pytest.mark.parametrize(("width", "height"), [(1280, 900), (390, 844)])
+def test_clear_pending_stream_cancels_stale_answer(
+    page: Page, live_server_url: str, api_config, pending_chat_stream, width, height
+):
     api_config["showChatHistoryBrowser"] = True
-    captured = mock_chat(page, [chat_response("Fresh conversation answer", session_state="fresh-session")])
+    captured = mock_chat(
+        page,
+        [chat_response("Fresh conversation answer", session_state="fresh-session")],
+    )
+    page.set_viewport_size({"width": width, "height": height})
     page.goto(live_server_url)
     send_question(page)
     page.wait_for_function("window.pendingChat.controller !== undefined")
+    expect(page.get_by_role("button", name="New chat", exact=True)).to_be_enabled()
     page.evaluate(
         """response => {
             window.pushChatEvent({context: response.context, session_state: response.session_state, delta: {role: 'assistant'}});
@@ -1590,6 +1616,8 @@ def test_clear_pending_stream_cancels_stale_answer(page: Page, live_server_url: 
     page.get_by_role("button", name="New chat", exact=True).click()
     assert page.evaluate("window.pendingChat.signal.aborted") is True
     expect(page.get_by_text("Partial answer", exact=True)).to_have_count(0)
+    expect(page.get_by_role("button", name="New chat", exact=True)).to_have_count(0)
+    expect(page.get_by_role("textbox", name="Your message", exact=True)).to_be_focused()
     send_question(page, "Start a fresh conversation")
     page.evaluate("""() => {
             window.pushChatEvent({delta: {content: ' stale cancelled content'}});
@@ -1652,17 +1680,77 @@ def open_history(page: Page, refresh: bool = False) -> None:
     expect(heading).to_be_visible()
 
 
-def test_history_sidebar_is_open_on_desktop_and_can_collapse(page: Page, live_server_url: str, api_config):
+@pytest.mark.parametrize(("width", "height"), [(1280, 900), (390, 844)])
+def test_history_sidebar_starts_collapsed_and_can_expand(page: Page, live_server_url: str, api_config, width, height):
     api_config["showChatHistoryBrowser"] = True
+    page.set_viewport_size({"width": width, "height": height})
     page.goto(live_server_url)
+    opener = page.get_by_role("button", name="Open chat history", exact=True)
+    expect(opener).to_be_visible()
+    expect(opener).to_have_attribute("aria-expanded", "false")
+    expect(page.get_by_role("heading", name="Chat history", exact=True)).to_have_count(0)
+    expect(page.get_by_role("button", name="New chat", exact=True)).to_have_count(0)
+    open_history(page)
     expect(page.get_by_role("heading", name="Chat history", exact=True)).to_be_visible()
-    expect(page.get_by_role("complementary", name="Chat history", exact=True)).to_be_visible()
+    expect(page.get_by_role("button", name="New chat", exact=True, include_hidden=True)).to_have_count(1)
     expect(page.get_by_text("No chat history", exact=True)).to_be_visible()
     expect(page.get_by_role("button", name="Load more", exact=True)).to_have_count(0)
     page.get_by_role("button", name="Close chat history", exact=True).click()
     expect(page.get_by_role("heading", name="Chat history", exact=True)).to_have_count(0)
     expect(page.get_by_role("button", name="Open chat history", exact=True)).to_be_focused()
     open_history(page)
+    page.reload()
+    expect(opener).to_be_visible()
+    expect(page.get_by_role("heading", name="Chat history", exact=True)).to_have_count(0)
+    expect(page.get_by_role("button", name="New chat", exact=True)).to_have_count(0)
+
+
+@pytest.mark.parametrize(("width", "height"), [(1280, 900), (390, 844)])
+@pytest.mark.parametrize("history_enabled", [False, True], ids=["no-history", "local-history"])
+def test_new_chat_controls_follow_conversation_state(
+    page: Page, live_server_url: str, api_config, history_enabled, width, height
+):
+    api_config.update(showChatHistoryBrowser=history_enabled, streamingEnabled=False)
+    captured = mock_chat(page, [chat_response()])
+    page.set_viewport_size({"width": width, "height": height})
+    page.goto(live_server_url)
+    textbox = page.get_by_role("textbox", name="Your message", exact=True)
+    expect(textbox).to_be_enabled()
+    opener = page.get_by_role("button", name="Open chat history", exact=True)
+    expect(opener).to_have_count(1 if history_enabled else 0)
+    new_chat = page.get_by_role("button", name="New chat", exact=True)
+    expect(new_chat).to_have_count(0)
+    textbox.fill("An unsent first draft")
+    expect(new_chat).to_have_count(0)
+    send_question(page)
+    expect_app_text(page, ANSWER)
+    textbox.fill("An unsent follow-up")
+    expect(page.get_by_role("button", name="Submit question", exact=True)).to_be_enabled()
+    expect(new_chat).to_be_enabled()
+    if history_enabled:
+        open_history(page)
+        expect(page.locator("button[data-new-chat='true']")).to_be_visible()
+        expect(page.get_by_role("button", name="New chat", exact=True, include_hidden=True)).to_have_count(1)
+        expect(page.get_by_role("button", name=QUESTION, exact=True)).to_be_visible()
+        page.get_by_role("button", name="Close chat history", exact=True).click()
+        expect(new_chat).to_be_enabled()
+    new_chat.press("Enter")
+    expect(new_chat).to_have_count(0)
+    expect(textbox).to_have_value("")
+    expect(textbox).to_be_focused()
+    page.keyboard.type("A fresh draft", delay=10)
+    expect(textbox).to_have_value("A fresh draft")
+    expect(new_chat).to_have_count(0)
+    expect(page.get_by_role("heading", name="Alex's AI assistant", level=1, exact=True)).to_be_visible()
+    if history_enabled:
+        open_history(page)
+        expect(page.get_by_role("button", name=QUESTION, exact=True)).to_be_visible()
+        page.get_by_role("button", name="Close chat history", exact=True).click()
+        expect(new_chat).to_have_count(0)
+        expect(textbox).to_have_value("A fresh draft")
+    else:
+        expect(page.locator('[class*="toolbar"]')).to_have_count(0)
+    assert len(captured) == 1
 
 
 def test_anonymous_history_saves_locally_and_survives_reload(
@@ -1926,6 +2014,7 @@ def test_new_chat_preserves_saved_conversation_and_clears_draft(page: Page, live
     page.goto(live_server_url)
     send_question(page, "First saved question")
     expect_app_text(page, "First saved reply")
+    open_history(page)
     first = page.get_by_role("button", name="First saved question", exact=True)
     expect(first).to_have_attribute("aria-current", "page")
     page.get_by_role("textbox", name="Your message", exact=True).fill("An unsent draft")
@@ -1990,6 +2079,8 @@ def test_mobile_history_drawer_focus_escape_and_restore(page: Page, live_server_
     expect(page.get_by_text("Saved answer 00", exact=True)).to_be_visible()
     expect(heading).to_have_count(0)
     expect(opener).to_be_visible()
+    expect(opener).to_be_focused()
+    expect(page.get_by_role("button", name="New chat", exact=True)).to_be_enabled()
 
 
 def test_mobile_history_scroll_keeps_navigation_and_storage_notice_fixed(page: Page, live_server_url: str, api_config):
@@ -2029,9 +2120,13 @@ def test_history_read_failure_has_explicit_reload_action(page: Page, live_server
         };
     })();""")
     page.goto(live_server_url)
+    open_history(page)
     notice = page.get_by_role("alert")
     expect(
-        notice.get_by_text("Chat history could not be accessed. Reload it or try the action again.", exact=True)
+        notice.get_by_text(
+            "Chat history could not be accessed. Reload it or try the action again.",
+            exact=True,
+        )
     ).to_be_visible()
     expect(page.get_by_text("No chat history", exact=True)).to_have_count(0)
     page.evaluate("window.allowHistoryRead = true")
@@ -2059,6 +2154,7 @@ def test_history_save_failure_preserves_received_answer(page: Page, live_server_
             exact=True,
         )
     ).to_be_visible()
+    open_history(page)
     expect(page.get_by_role("button", name=QUESTION, exact=True)).to_have_count(0)
 
 

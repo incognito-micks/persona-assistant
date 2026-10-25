@@ -12,9 +12,10 @@ interface Props {
     initQuestion?: string;
     placeholder?: string;
     clearOnSend?: boolean;
+    autoFocus?: boolean;
 }
 
-export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, initQuestion }: Props) => {
+export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, initQuestion, autoFocus = false }: Props) => {
     const [question, setQuestion] = useState<string>("");
     const { t } = useTranslation();
     const [isComposing, setIsComposing] = useState(false);
@@ -64,6 +65,7 @@ export const QuestionInput = ({ onSend, disabled, placeholder, clearOnSend, init
     return (
         <Stack horizontal className={styles.questionInputContainer}>
             <TextField
+                autoFocus={autoFocus}
                 className={styles.questionInputTextArea}
                 ariaLabel={t("questionInputLabel")}
                 placeholder={placeholder}
