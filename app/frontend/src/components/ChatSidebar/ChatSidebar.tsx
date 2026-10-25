@@ -225,7 +225,13 @@ export const ChatSidebar = ({
             onDismiss={close}
             className={styles.drawer}
             onRenderNavigationContent={() => closeButton}
-            focusTrapZoneProps={{ firstFocusableTarget: "[data-new-chat='true']", enableAriaHiddenSiblings: true }}
+            focusTrapZoneProps={{ firstFocusableTarget: "[data-new-chat='true']", enableAriaHiddenSiblings: true, disableRestoreFocus: true }}
+            popupProps={{
+                // Restore synchronously so a closed drawer cannot steal new-chat focus.
+                onRestoreFocus: ({ originalElement, containsFocus }) => {
+                    if (containsFocus) originalElement?.focus();
+                }
+            }}
             overlayProps={{ styles: { root: { backgroundColor: "var(--app-overlay)", opacity: 1 } } }}
             styles={{
                 main: { overflowY: "hidden" },

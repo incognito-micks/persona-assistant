@@ -39,13 +39,14 @@ const Chat = () => {
     const [answers, setAnswers] = useState<[user: string, response: ChatAppResponse][]>([]);
     const [streamedAnswers, setStreamedAnswers] = useState<[user: string, response: ChatAppResponse][]>([]);
     const [isNarrow, setIsNarrow] = useState(() => !window.matchMedia(DESKTOP_QUERY).matches);
-    const [desktopSidebarExpanded, setDesktopSidebarExpanded] = useState(true);
+    const [desktopSidebarExpanded, setDesktopSidebarExpanded] = useState(false);
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
     const [historyActionBusy, setHistoryActionBusy] = useState(false);
     const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
     const [latestSavedChat, setLatestSavedChat] = useState<HistoryMetaData | null>(null);
     const [historyWarning, setHistoryWarning] = useState<string>();
     const [composerVersion, setComposerVersion] = useState(0);
+    const [focusComposer, setFocusComposer] = useState(false);
 
     const historyProvider = config?.showChatHistoryBrowser ? HistoryProviderOptions.IndexedDB : HistoryProviderOptions.None;
     const historyManager = useHistoryManager(historyProvider);
@@ -174,7 +175,7 @@ const Chat = () => {
         }
     };
 
-    const startNewChat = () => {
+    const startNewChat = (focusInput = false) => {
         conversationVersion.current += 1;
         if (conversationScroll.current) conversationScroll.current.scrollLeft = 0;
         activeRequest.current?.abort();
@@ -187,6 +188,7 @@ const Chat = () => {
         setHistoryActionBusy(false);
         setActiveHistoryId(null);
         setLatestSavedChat(null);
+        setFocusComposer(focusInput);
         setComposerVersion(version => version + 1);
         setAnswers([]);
         setStreamedAnswers([]);
@@ -216,6 +218,7 @@ const Chat = () => {
     };
     const displayedAnswers = isStreaming ? streamedAnswers : answers;
     const historyTruncated = displayedAnswers[displayedAnswers.length - 1]?.[1].context?.history_truncated;
+    const hasConversation = Boolean(lastQuestionRef.current);
     const hasHistory = historyProvider !== HistoryProviderOptions.None;
     const sidebarOpen = hasHistory && (isNarrow ? mobileSidebarOpen : desktopSidebarExpanded);
     const selectionVersion = conversationVersion.current;
@@ -242,7 +245,7 @@ const Chat = () => {
                         if (isNarrow) setMobileSidebarOpen(false);
                         else setDesktopSidebarExpanded(false);
                     }}
-                    onNewChat={startNewChat}
+                    onNewChat={() => startNewChat()}
                     onChatSelected={(id, selectedAnswers) => {
                         if (conversationVersion.current !== selectionVersion || activeRequest.current) return;
                         startNewChat();
@@ -256,7 +259,7 @@ const Chat = () => {
                 />
             )}
             <div className={styles.chatColumn}>
-                {(!sidebarOpen || isNarrow) && (
+                {(hasHistory || hasConversation) && (!sidebarOpen || isNarrow) && (
                     <div className={styles.toolbar}>
                         {hasHistory && (
                             <button
@@ -271,20 +274,22 @@ const Chat = () => {
                                 <Navigation20Regular aria-hidden />
                             </button>
                         )}
-                        <button
-                            type="button"
-                            className={styles.toolbarButton}
-                            onClick={startNewChat}
-                            aria-label={t("history.newChat")}
-                            title={t("history.newChat")}
-                        >
-                            <Add20Regular aria-hidden />
-                            <span className={styles.newChatLabel}>{t("history.newChat")}</span>
-                        </button>
+                        {hasConversation && !sidebarOpen && (
+                            <button
+                                type="button"
+                                className={styles.toolbarButton}
+                                onClick={() => startNewChat(true)}
+                                aria-label={t("history.newChat")}
+                                title={t("history.newChat")}
+                            >
+                                <Add20Regular aria-hidden />
+                                <span className={styles.newChatLabel}>{t("history.newChat")}</span>
+                            </button>
+                        )}
                     </div>
                 )}
                 <div ref={conversationScroll} className={styles.conversationScroll} role="region" aria-label={t("chat")} tabIndex={0}>
-                    {!lastQuestionRef.current ? (
+                    {!hasConversation ? (
                         <div className={styles.chatEmptyState}>
                             <img
                                 src={getAvatarUrl(publicStatus)}
@@ -347,6 +352,7 @@ const Chat = () => {
                     ) : null}
                     <QuestionInput
                         key={composerVersion}
+                        autoFocus={focusComposer}
                         clearOnSend
                         placeholder={t("defaultExamples.placeholder")}
                         disabled={!config || isRequestActive || historyActionBusy}
