@@ -1,5 +1,6 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { Mic20Regular } from "@fluentui/react-icons";
 import styles from "./Layout.module.css";
 
 import { useAppContext } from "../../appContext";
@@ -8,9 +9,11 @@ import { getAssistantName, getAvatarUrl } from "../../profile";
 
 const Layout = () => {
     const { t } = useTranslation();
-    const { publicStatus } = useAppContext();
+    const { publicStatus, config } = useAppContext();
     const { pathname } = useLocation();
     const isOwnerWorkspace = pathname === "/admin" || pathname.startsWith("/admin/");
+    const isChat = pathname === "/";
+    const isVoice = pathname === "/voice";
     const assistantName = getAssistantName(publicStatus);
     const contacts = [
         publicStatus?.owner_email ? { href: `mailto:${publicStatus.owner_email}`, label: t("profile.email") } : null,
@@ -27,9 +30,16 @@ const Layout = () => {
                         <img src={getAvatarUrl(publicStatus)} alt="" className={styles.headerAvatar} />
                         <h3 className={styles.headerTitle}>{assistantName}</h3>
                     </Link>
-                    <Link to={isOwnerWorkspace ? "/" : "/admin"} className={styles.ownerLink}>
-                        {t(isOwnerWorkspace ? "admin.backToChat" : "admin.ownerLink")}
-                    </Link>
+                    {isOwnerWorkspace ? (
+                        <Link to="/" className={styles.headerLink}>
+                            {t("admin.backToChat")}
+                        </Link>
+                    ) : config?.showRealtimeVoice && !isVoice ? (
+                        <Link to="/voice" className={styles.voiceLink}>
+                            <Mic20Regular aria-hidden />
+                            {t("voice.open")}
+                        </Link>
+                    ) : null}
                 </div>
                 {publicStatus?.vacation_mode && (
                     <div className={styles.vacationBanner}>
@@ -40,7 +50,7 @@ const Layout = () => {
                 )}
             </header>
 
-            <main className={styles.main} id="main-content">
+            <main className={`${styles.main} ${isChat ? "" : styles.scrollPage}`} id="main-content">
                 <Outlet />
             </main>
 

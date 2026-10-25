@@ -7,7 +7,7 @@ import { useRealtimeWebSocket } from "./useRealtimeWebSocket";
 import type { UserVoiceTurn } from "./useRealtimeWebSocket";
 import { useAudioCapture } from "./useAudioCapture";
 import { useAudioPlayback } from "./useAudioPlayback";
-import { configApi } from "../../api";
+import { useAppContext } from "../../appContext";
 
 interface ConversationEntry {
     role: "user" | "assistant";
@@ -18,8 +18,8 @@ interface ConversationEntry {
 export function Component() {
     const navigate = useNavigate();
     const { t } = useTranslation();
-    const [voiceEnabled, setVoiceEnabled] = useState<boolean | null>(null);
-    const [configError, setConfigError] = useState(false);
+    const { config, configError } = useAppContext();
+    const voiceEnabled = config ? config.showRealtimeVoice === true : configError ? false : null;
     const [conversation, setConversation] = useState<ConversationEntry[]>([]);
     const [isSessionActive, setIsSessionActive] = useState(false);
     const [sessionError, setSessionError] = useState<string | null>(null);
@@ -41,21 +41,6 @@ export function Component() {
             }
         });
     }, [stopCapture, stopPlayback, t]);
-
-    useEffect(() => {
-        const controller = new AbortController();
-        configApi(controller.signal)
-            .then(config => {
-                if (!controller.signal.aborted) setVoiceEnabled(config.showRealtimeVoice === true);
-            })
-            .catch(() => {
-                if (!controller.signal.aborted) {
-                    setConfigError(true);
-                    setVoiceEnabled(false);
-                }
-            });
-        return () => controller.abort();
-    }, []);
 
     const recordVoiceTurn = useCallback((turn: UserVoiceTurn, previousAssistantReply: string) => {
         setConversation(previous => [

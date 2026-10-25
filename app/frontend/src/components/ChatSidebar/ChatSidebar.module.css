@@ -1,0 +1,180 @@
+.sidebar {
+    flex: 0 0 18rem;
+    width: 18rem;
+    min-height: 0;
+    background: var(--app-surface);
+    border-inline-end: 1px solid var(--app-border);
+}
+
+.sidebarContent {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    min-width: 0;
+    width: 100%;
+    color: var(--app-text);
+}
+
+.actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem;
+}
+
+.newChatButton,
+.secondaryButton,
+.confirmDeleteButton,
+.iconButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 40px;
+    border: 1px solid var(--app-border-strong);
+    border-radius: 0.625rem;
+    padding: 0.5rem 0.75rem;
+    font: inherit;
+    font-size: max(0.875rem, 14px);
+    color: var(--app-text);
+    background: var(--app-surface-soft);
+    cursor: pointer;
+}
+
+.newChatButton {
+    flex: 1;
+    font-weight: 600;
+    border-color: var(--app-action);
+    background: var(--app-action);
+}
+
+.newChatButton:hover {
+    background: var(--app-accent-hover);
+}
+
+.iconButton {
+    flex: 0 0 auto;
+    width: 40px;
+    padding: 0.5rem;
+    background: transparent;
+    border-color: transparent;
+}
+
+.secondaryButton:hover,
+.iconButton:hover {
+    background: var(--app-hover);
+}
+
+.iconButton:disabled {
+    color: var(--app-muted);
+    cursor: default;
+}
+
+.newChatButton:focus-visible,
+.secondaryButton:focus-visible,
+.confirmDeleteButton:focus-visible,
+.iconButton:focus-visible {
+    outline: 2px solid var(--app-focus);
+    outline-offset: 2px;
+}
+
+.heading {
+    margin: 0;
+    padding: 0 1rem 0.75rem;
+    font-size: max(1rem, 14px);
+    font-weight: 600;
+}
+
+.historyList {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0 0.5rem 1rem;
+    scrollbar-color: var(--app-border-strong) var(--app-surface);
+    scrollbar-width: thin;
+}
+
+.group + .group {
+    margin-top: 1rem;
+}
+
+.groupLabel {
+    color: var(--app-muted);
+    font-size: max(0.75rem, 12px);
+    font-weight: 600;
+    margin: 0;
+    padding: 0.5rem;
+}
+
+.storageNotice {
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 1rem;
+    border-top: 1px solid var(--app-border);
+    color: var(--app-muted);
+    font-size: max(0.75rem, 12px);
+    line-height: 1.5;
+}
+
+.empty,
+.error {
+    padding: 0.5rem;
+    font-size: max(0.875rem, 14px);
+    line-height: 1.5;
+    color: var(--app-muted);
+}
+
+.error {
+    color: var(--app-danger);
+}
+
+.loading {
+    margin: 1rem 0;
+    color: var(--app-muted);
+}
+
+.drawer :global(.ms-Panel-main) {
+    background: var(--app-surface) !important;
+    color: var(--app-text) !important;
+}
+
+.deleteDialog :global(.ms-Dialog-main) {
+    background: var(--app-surface);
+    color: var(--app-text);
+    border: 1px solid var(--app-border);
+    border-radius: 1rem;
+}
+
+.deleteDialog :global(.ms-Dialog-title) {
+    color: var(--app-text);
+}
+
+.deleteDialog :global(.ms-Dialog-subText) {
+    color: var(--app-muted);
+}
+
+.deleteDialog :global(.ms-Dialog-actionsRight) {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.confirmDeleteButton {
+    background: var(--app-danger);
+    border-color: var(--app-danger);
+    color: var(--app-background);
+    font-weight: 600;
+}
+
+.confirmDeleteButton:hover {
+    filter: brightness(0.95);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .drawer :global(.ms-Panel-main) {
+        animation: none !important;
+    }
+}

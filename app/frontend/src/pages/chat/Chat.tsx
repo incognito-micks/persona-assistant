@@ -1,46 +1,54 @@
 import { useRef, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
 import { Spinner } from "@fluentui/react";
+import { Add20Regular, Navigation20Regular } from "@fluentui/react-icons";
 import readNDJSONStream from "ndjson-readablestream";
 
 import styles from "./Chat.module.css";
 
-import { chatApi, configApi, ChatAppResponse, ChatAppResponseOrError, ChatAppRequest, Config, ResponseMessage } from "../../api";
+import { chatApi, ChatAppResponse, ChatAppResponseOrError, ChatAppRequest, ResponseMessage } from "../../api";
 import { Answer, AnswerError, AnswerLoading } from "../../components/Answer";
 import { QuestionInput } from "../../components/QuestionInput";
 import { ExampleList } from "../../components/Example";
 import { UserChatMessage } from "../../components/UserChatMessage";
-import { HistoryPanel } from "../../components/HistoryPanel";
+import { ChatSidebar } from "../../components/ChatSidebar";
 import { HistoryProviderOptions, useHistoryManager } from "../../components/HistoryProviders";
-import { HistoryButton } from "../../components/HistoryButton";
-import { ClearChatButton } from "../../components/ClearChatButton";
+import { getHistoryTitle } from "../../components/HistoryProviders/IProvider";
+import type { HistoryMetaData } from "../../components/HistoryProviders/IProvider";
 import { useAppContext } from "../../appContext";
 import { getAssistantName, getAvatarUrl } from "../../profile";
 import { LanguagePicker } from "../../i18n/LanguagePicker";
 
 const suggestFollowupQuestions = false;
+const DESKTOP_QUERY = "(min-width: 992px)";
 
 const Chat = () => {
-    const navigate = useNavigate();
     const { t, i18n } = useTranslation();
-    const { publicStatus } = useAppContext();
-    const [config, setConfig] = useState<Config>();
-    const [configError, setConfigError] = useState<string>();
-    const [configAttempt, setConfigAttempt] = useState(0);
-
-    const lastQuestionRef = useRef<string>("");
-    const chatMessageStreamEnd = useRef<HTMLDivElement | null>(null);
+    const { publicStatus, config, configError, retryConfig } = useAppContext();
+    const lastQuestionRef = useRef("");
+    const conversationScroll = useRef<HTMLDivElement>(null);
     const activeRequest = useRef<AbortController | null>(null);
+    const conversationVersion = useRef(0);
+    const sidebarToggle = useRef<HTMLButtonElement>(null);
+    const focusToggleAfterClose = useRef(false);
 
-    const [isLoading, setIsLoading] = useState<boolean>(false);
-    const [isStreaming, setIsStreaming] = useState<boolean>(false);
+    const [isLoading, setIsLoading] = useState(false);
+    const [isStreaming, setIsStreaming] = useState(false);
+    const [isRequestActive, setIsRequestActive] = useState(false);
     const [error, setError] = useState<unknown>();
-
     const [answers, setAnswers] = useState<[user: string, response: ChatAppResponse][]>([]);
     const [streamedAnswers, setStreamedAnswers] = useState<[user: string, response: ChatAppResponse][]>([]);
+    const [isNarrow, setIsNarrow] = useState(() => !window.matchMedia(DESKTOP_QUERY).matches);
+    const [desktopSidebarExpanded, setDesktopSidebarExpanded] = useState(true);
+    const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+    const [historyActionBusy, setHistoryActionBusy] = useState(false);
+    const [activeHistoryId, setActiveHistoryId] = useState<string | null>(null);
+    const [latestSavedChat, setLatestSavedChat] = useState<HistoryMetaData | null>(null);
+    const [historyWarning, setHistoryWarning] = useState<string>();
+    const [composerVersion, setComposerVersion] = useState(0);
 
-    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+    const historyProvider = config?.showChatHistoryBrowser ? HistoryProviderOptions.IndexedDB : HistoryProviderOptions.None;
+    const historyManager = useHistoryManager(historyProvider);
 
     const handleAsyncRequest = async (
         question: string,
@@ -48,18 +56,16 @@ const Chat = () => {
         responseBody: ReadableStream<Uint8Array>,
         signal: AbortSignal
     ) => {
-        let answer: string = "";
+        let answer = "";
         let askResponse: ChatAppResponse = {} as ChatAppResponse;
-
         const updateState = async (newContent: string) => {
             await new Promise(resolve => setTimeout(resolve, 33));
             signal.throwIfAborted();
             answer += newContent;
-            const latestResponse: ChatAppResponse = {
-                ...askResponse,
-                message: { content: answer, role: askResponse.message?.role ?? "assistant" }
-            };
-            setStreamedAnswers([...previousAnswers, [question, latestResponse]]);
+            setStreamedAnswers([
+                ...previousAnswers,
+                [question, { ...askResponse, message: { content: answer, role: askResponse.message?.role ?? "assistant" } }]
+            ]);
         };
         try {
             signal.throwIfAborted();
@@ -74,48 +80,40 @@ const Chat = () => {
                     setIsLoading(false);
                     await updateState(event["delta"]["content"]);
                 } else if (event["context"]) {
-                    // Update context with new keys from latest event
                     askResponse.context = { ...askResponse.context, ...event["context"] };
                 } else if (event["error"]) {
                     throw Error(event["error"]);
                 }
             }
         } finally {
-            if (!signal.aborted) {
-                setIsStreaming(false);
-            }
+            if (!signal.aborted) setIsStreaming(false);
         }
         signal.throwIfAborted();
-        const fullResponse: ChatAppResponse = {
+        return {
             ...askResponse,
             message: { content: answer, role: askResponse.message?.role ?? "assistant" }
         };
-        return fullResponse;
     };
 
-    const historyProvider = config?.showChatHistoryBrowser ? HistoryProviderOptions.IndexedDB : HistoryProviderOptions.None;
-    const historyManager = useHistoryManager(historyProvider);
-
     const makeApiRequest = async (question: string, exampleQuestionId?: string) => {
-        if (!config || activeRequest.current || !question.trim()) return;
-
+        if (!config || activeRequest.current || historyActionBusy || !question.trim()) return;
+        conversationVersion.current += 1;
+        if (conversationScroll.current) conversationScroll.current.scrollLeft = 0;
         const controller = new AbortController();
         activeRequest.current = controller;
+        setIsRequestActive(true);
         const { signal } = controller;
-        const shouldStream = config.streamingEnabled === true;
         lastQuestionRef.current = question;
-
         setError(undefined);
+        setHistoryWarning(undefined);
         setIsLoading(true);
-        setIsHistoryOpen(false);
-
+        setMobileSidebarOpen(false);
         try {
             signal.throwIfAborted();
             const messages: ResponseMessage[] = answers.flatMap(entry => [
                 { content: entry[0], role: "user" },
                 { content: entry[1].message.content, role: "assistant" }
             ]);
-
             const request: ChatAppRequest = {
                 messages: [...messages, { content: question, role: "user" }],
                 context: {
@@ -126,14 +124,10 @@ const Chat = () => {
                         language: i18n.language
                     }
                 },
-                // AI Chat Protocol: Client must pass on any session state received from the server
                 session_state: answers.length ? answers[answers.length - 1][1].session_state : null
             };
-
-            const response = await chatApi(request, shouldStream, signal);
-            if (!response.body) {
-                throw Error("No response body");
-            }
+            const response = await chatApi(request, config.streamingEnabled === true, signal);
+            if (!response.body) throw Error("No response body");
             if (response.status > 299 || !response.ok) {
                 if (response.headers.get("Content-Type")?.includes("application/json")) {
                     const failure: unknown = await response.json();
@@ -143,41 +137,57 @@ const Chat = () => {
                 }
                 throw Error(`Request failed with status ${response.status}`);
             }
-            const parsedResponse: ChatAppResponseOrError = shouldStream
-                ? await handleAsyncRequest(question, answers, response.body, signal)
-                : await response.json();
+            const parsedResponse: ChatAppResponseOrError =
+                config.streamingEnabled === true ? await handleAsyncRequest(question, answers, response.body, signal) : await response.json();
             signal.throwIfAborted();
-            if (parsedResponse.error) {
-                throw Error(parsedResponse.error);
-            }
+            if (parsedResponse.error) throw Error(parsedResponse.error);
             const updatedAnswers: [string, ChatAppResponse][] = [...answers, [question, parsedResponse]];
             setAnswers(updatedAnswers);
-            if (typeof parsedResponse.session_state === "string" && parsedResponse.session_state !== "") {
-                try {
-                    await historyManager.addItem(parsedResponse.session_state, updatedAnswers);
-                } catch (historyError) {
-                    console.error("Saving chat history failed:", historyError);
+            if (historyProvider !== HistoryProviderOptions.None) {
+                if (typeof parsedResponse.session_state === "string" && parsedResponse.session_state !== "") {
+                    try {
+                        await historyManager.addItem(parsedResponse.session_state, updatedAnswers);
+                        setLatestSavedChat({
+                            id: parsedResponse.session_state,
+                            title: getHistoryTitle(updatedAnswers[0][0]),
+                            timestamp: Date.now()
+                        });
+                        if (!signal.aborted && activeRequest.current === controller) setActiveHistoryId(parsedResponse.session_state);
+                    } catch (historyError) {
+                        console.error("Saving chat history failed:", historyError);
+                        if (!signal.aborted) setHistoryWarning(t("history.saveError"));
+                    }
+                } else {
+                    console.error("The chat response did not include a persistable session ID.");
+                    setHistoryWarning(t("history.saveError"));
                 }
             }
         } catch (requestError) {
-            if (!signal.aborted) {
-                setError(requestError);
-            }
+            if (!signal.aborted) setError(requestError);
         } finally {
             if (activeRequest.current === controller) {
                 activeRequest.current = null;
+                setIsRequestActive(false);
                 setIsLoading(false);
                 setIsStreaming(false);
             }
         }
     };
 
-    const clearChat = () => {
+    const startNewChat = () => {
+        conversationVersion.current += 1;
+        if (conversationScroll.current) conversationScroll.current.scrollLeft = 0;
         activeRequest.current?.abort();
         activeRequest.current = null;
+        setIsRequestActive(false);
         lastQuestionRef.current = "";
         setError(undefined);
-        setIsHistoryOpen(false);
+        setHistoryWarning(undefined);
+        setMobileSidebarOpen(false);
+        setHistoryActionBusy(false);
+        setActiveHistoryId(null);
+        setLatestSavedChat(null);
+        setComposerVersion(version => version + 1);
         setAnswers([]);
         setStreamedAnswers([]);
         setIsLoading(false);
@@ -185,54 +195,95 @@ const Chat = () => {
     };
 
     useEffect(() => {
-        chatMessageStreamEnd.current?.scrollIntoView({ behavior: "smooth" });
-    }, [isLoading]);
-    useEffect(() => {
-        chatMessageStreamEnd.current?.scrollIntoView({ behavior: "auto" });
-    }, [streamedAnswers]);
-    useEffect(() => {
-        const controller = new AbortController();
-        setConfigError(undefined);
-        configApi(controller.signal)
-            .then(loadedConfig => {
-                if (!controller.signal.aborted) setConfig(loadedConfig);
-            })
-            .catch(() => {
-                if (!controller.signal.aborted) setConfigError(t("configuration.error"));
-            });
-        return () => controller.abort();
-    }, [configAttempt, t]);
+        const area = conversationScroll.current;
+        if (area) area.scrollTop = lastQuestionRef.current ? area.scrollHeight : 0;
+    }, [isLoading, answers, streamedAnswers]);
 
     useEffect(() => {
-        return () => {
-            activeRequest.current?.abort();
+        const media = window.matchMedia(DESKTOP_QUERY);
+        const resize = (event: MediaQueryListEvent) => {
+            setIsNarrow(!event.matches);
+            if (event.matches) setMobileSidebarOpen(false);
         };
+        media.addEventListener("change", resize);
+        return () => media.removeEventListener("change", resize);
     }, []);
 
-    const onExampleClicked = (example: string, index: number) => {
-        makeApiRequest(example, publicStatus?.example_questions?.[index] === example ? `example-${index + 1}` : undefined);
-    };
+    useEffect(() => () => activeRequest.current?.abort(), []);
 
+    const onExampleClicked = (example: string, index: number) => {
+        void makeApiRequest(example, publicStatus?.example_questions?.[index] === example ? `example-${index + 1}` : undefined);
+    };
     const displayedAnswers = isStreaming ? streamedAnswers : answers;
-    const historyTruncated = displayedAnswers[displayedAnswers.length - 1]?.[1].context.history_truncated;
+    const historyTruncated = displayedAnswers[displayedAnswers.length - 1]?.[1].context?.history_truncated;
+    const hasHistory = historyProvider !== HistoryProviderOptions.None;
+    const sidebarOpen = hasHistory && (isNarrow ? mobileSidebarOpen : desktopSidebarExpanded);
+    const selectionVersion = conversationVersion.current;
+
+    useEffect(() => {
+        if (!sidebarOpen && focusToggleAfterClose.current) {
+            focusToggleAfterClose.current = false;
+            sidebarToggle.current?.focus();
+        }
+    }, [sidebarOpen]);
 
     return (
         <div className={styles.container}>
-            <div className={styles.commandsSplitContainer}>
-                <div className={styles.commandsContainer}>
-                    <ClearChatButton className={styles.commandButton} onClick={clearChat} disabled={!lastQuestionRef.current} />
-                    {historyProvider !== HistoryProviderOptions.None && (
-                        <HistoryButton
-                            className={styles.commandButton}
-                            disabled={isLoading || isStreaming}
-                            isOpen={isHistoryOpen}
-                            onClick={() => setIsHistoryOpen(open => !open)}
-                        />
-                    )}
-                </div>
-            </div>
-            <div className={styles.chatRoot}>
-                <div className={styles.chatContainer}>
+            {sidebarOpen && (
+                <ChatSidebar
+                    provider={historyProvider}
+                    isMobile={isNarrow}
+                    conversationBusy={isRequestActive}
+                    activeId={activeHistoryId}
+                    latestSavedChat={latestSavedChat}
+                    onBusyChange={setHistoryActionBusy}
+                    onClose={() => {
+                        focusToggleAfterClose.current = true;
+                        if (isNarrow) setMobileSidebarOpen(false);
+                        else setDesktopSidebarExpanded(false);
+                    }}
+                    onNewChat={startNewChat}
+                    onChatSelected={(id, selectedAnswers) => {
+                        if (conversationVersion.current !== selectionVersion || activeRequest.current) return;
+                        startNewChat();
+                        setAnswers(selectedAnswers);
+                        lastQuestionRef.current = selectedAnswers[selectedAnswers.length - 1][0];
+                        setActiveHistoryId(id);
+                    }}
+                    onChatDeleted={id => {
+                        if (conversationVersion.current === selectionVersion && activeHistoryId === id) startNewChat();
+                    }}
+                />
+            )}
+            <div className={styles.chatColumn}>
+                {(!sidebarOpen || isNarrow) && (
+                    <div className={styles.toolbar}>
+                        {hasHistory && (
+                            <button
+                                ref={sidebarToggle}
+                                type="button"
+                                className={styles.toolbarButton}
+                                aria-label={t("history.openChatHistory")}
+                                title={t("history.openChatHistory")}
+                                aria-expanded={sidebarOpen}
+                                onClick={() => (isNarrow ? setMobileSidebarOpen(true) : setDesktopSidebarExpanded(true))}
+                            >
+                                <Navigation20Regular aria-hidden />
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            className={styles.toolbarButton}
+                            onClick={startNewChat}
+                            aria-label={t("history.newChat")}
+                            title={t("history.newChat")}
+                        >
+                            <Add20Regular aria-hidden />
+                            <span className={styles.newChatLabel}>{t("history.newChat")}</span>
+                        </button>
+                    </div>
+                )}
+                <div ref={conversationScroll} className={styles.conversationScroll} role="region" aria-label={t("chat")} tabIndex={0}>
                     {!lastQuestionRef.current ? (
                         <div className={styles.chatEmptyState}>
                             <img
@@ -243,46 +294,24 @@ const Chat = () => {
                             <h1 className={styles.chatEmptyStateTitle}>{getAssistantName(publicStatus)}</h1>
                             <p className={styles.welcomeMessage}>{publicStatus?.welcome_message?.trim() || t("chatEmptyStateSubtitle")}</p>
                             {config?.showLanguagePicker && <LanguagePicker onLanguageChange={newLang => i18n.changeLanguage(newLang)} />}
-
                             {config && <ExampleList onExampleClicked={onExampleClicked} questions={publicStatus?.example_questions} />}
-                            {config?.showRealtimeVoice && (
-                                <button className={styles.voiceChatButton} onClick={() => navigate("/voice")}>
-                                    {t("voice.open")}
-                                </button>
-                            )}
                         </div>
                     ) : (
                         <div className={styles.chatMessageStream}>
-                            {isStreaming &&
-                                streamedAnswers.map((streamedAnswer, index) => (
-                                    <div key={index}>
-                                        <UserChatMessage message={streamedAnswer[0]} />
-                                        <div className={styles.chatMessageGpt}>
-                                            <Answer
-                                                isStreaming={true}
-                                                key={index}
-                                                answer={streamedAnswer[1]}
-                                                onFollowupQuestionClicked={q => makeApiRequest(q)}
-                                                showFollowupQuestions={suggestFollowupQuestions && answers.length - 1 === index}
-                                            />
-                                        </div>
+                            <h1 className={styles.visuallyHidden}>{t("chat")}</h1>
+                            {displayedAnswers.map((answer, index) => (
+                                <div key={index}>
+                                    <UserChatMessage message={answer[0]} />
+                                    <div className={styles.chatMessageGpt}>
+                                        <Answer
+                                            isStreaming={isStreaming}
+                                            answer={answer[1]}
+                                            onFollowupQuestionClicked={question => makeApiRequest(question)}
+                                            showFollowupQuestions={suggestFollowupQuestions && answers.length - 1 === index}
+                                        />
                                     </div>
-                                ))}
-                            {!isStreaming &&
-                                answers.map((answer, index) => (
-                                    <div key={index}>
-                                        <UserChatMessage message={answer[0]} />
-                                        <div className={styles.chatMessageGpt}>
-                                            <Answer
-                                                isStreaming={false}
-                                                key={index}
-                                                answer={answer[1]}
-                                                onFollowupQuestionClicked={q => makeApiRequest(q)}
-                                                showFollowupQuestions={suggestFollowupQuestions && answers.length - 1 === index}
-                                            />
-                                        </div>
-                                    </div>
-                                ))}
+                                </div>
+                            ))}
                             {isLoading && (
                                 <>
                                     <UserChatMessage message={lastQuestionRef.current} />
@@ -299,48 +328,33 @@ const Chat = () => {
                                     </div>
                                 </>
                             ) : null}
-                            <div ref={chatMessageStreamEnd} />
                         </div>
                     )}
-
-                    <div className={styles.chatInput}>
-                        {historyTruncated && <p role="status">{t("contextTruncated")}</p>}
-                        {configError ? (
-                            <div role="alert">
-                                <AnswerError error={configError} onRetry={() => setConfigAttempt(attempt => attempt + 1)} />
-                            </div>
-                        ) : !config ? (
-                            <Spinner label={t("configuration.loading")} />
-                        ) : null}
-                        <QuestionInput
-                            clearOnSend
-                            placeholder={t("defaultExamples.placeholder")}
-                            disabled={!config || isLoading || isStreaming}
-                            onSend={question => makeApiRequest(question)}
-                        />
-                        {config?.showRealtimeVoice && lastQuestionRef.current && (
-                            <button className={styles.voiceChatButton} onClick={() => navigate("/voice")}>
-                                {t("voice.open")}
-                            </button>
-                        )}
-                        <p className={styles.privacyDisclosure}>{t("privacy.disclosure")}</p>
-                        {historyProvider === HistoryProviderOptions.IndexedDB && <p className={styles.privacyDisclosure}>{t("privacy.localHistory")}</p>}
-                    </div>
                 </div>
-
-                {historyProvider !== HistoryProviderOptions.None && isHistoryOpen && (
-                    <HistoryPanel
-                        provider={historyProvider}
-                        isOpen={isHistoryOpen}
-                        onClose={() => setIsHistoryOpen(false)}
-                        onChatSelected={selectedAnswers => {
-                            if (selectedAnswers.length === 0) return;
-                            clearChat();
-                            setAnswers(selectedAnswers);
-                            lastQuestionRef.current = selectedAnswers[selectedAnswers.length - 1][0];
-                        }}
+                <div className={styles.chatInput}>
+                    {historyTruncated && <p role="status">{t("contextTruncated")}</p>}
+                    {historyWarning && (
+                        <p role="status" className={styles.historyWarning}>
+                            {historyWarning}
+                        </p>
+                    )}
+                    {configError ? (
+                        <div role="alert">
+                            <AnswerError error={t("configuration.error")} onRetry={retryConfig} />
+                        </div>
+                    ) : !config ? (
+                        <Spinner label={t("configuration.loading")} />
+                    ) : null}
+                    <QuestionInput
+                        key={composerVersion}
+                        clearOnSend
+                        placeholder={t("defaultExamples.placeholder")}
+                        disabled={!config || isRequestActive || historyActionBusy}
+                        onSend={question => makeApiRequest(question)}
                     />
-                )}
+                    <p className={styles.privacyDisclosure}>{t("privacy.disclosure")}</p>
+                    {hasHistory && !sidebarOpen && <p className={styles.privacyDisclosure}>{t("privacy.localHistory")}</p>}
+                </div>
             </div>
         </div>
     );

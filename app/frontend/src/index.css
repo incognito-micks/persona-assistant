@@ -3,6 +3,7 @@
 }
 
 html {
+    color-scheme: dark;
     --app-background: #1a1a2e;
     --app-surface: #22223a;
     --app-surface-soft: #292942;
@@ -13,6 +14,7 @@ html {
     --app-text: #f2f2f2;
     --app-muted: #c1c1d7;
     --app-accent: #6c63ff;
+    --app-accent-soft: rgba(108, 99, 255, 0.14);
     --app-action: #5e56e8;
     --app-accent-hover: #5951db;
     --app-focus: #b3aeff;

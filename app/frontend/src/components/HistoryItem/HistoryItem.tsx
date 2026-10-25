@@ -1,7 +1,5 @@
-import { useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import styles from "./HistoryItem.module.css";
-import { DefaultButton } from "@fluentui/react";
 import { Delete24Regular } from "@fluentui/react-icons";
 
 export interface HistoryData {
@@ -13,48 +11,35 @@ export interface HistoryData {
 interface HistoryItemProps {
     item: HistoryData;
     disabled?: boolean;
+    isActive?: boolean;
     onSelect: (id: string) => void;
     onDelete: (id: string) => void;
 }
 
-export function HistoryItem({ item, disabled, onSelect, onDelete }: HistoryItemProps) {
-    const [isModalOpen, setIsModalOpen] = useState(false);
-
-    const handleDelete = useCallback(() => {
-        setIsModalOpen(false);
-        onDelete(item.id);
-    }, [item.id, onDelete]);
+export function HistoryItem({ item, disabled, isActive, onSelect, onDelete }: HistoryItemProps) {
+    const { t } = useTranslation();
 
     return (
-        <div className={styles.historyItem}>
-            <button disabled={disabled} onClick={() => onSelect(item.id)} className={styles.historyItemButton}>
+        <div className={`${styles.historyItem} ${isActive ? styles.active : ""}`}>
+            <button
+                type="button"
+                disabled={disabled}
+                onClick={() => onSelect(item.id)}
+                className={styles.historyItemButton}
+                aria-current={isActive ? "page" : undefined}
+                title={item.title}
+            >
                 <div className={styles.historyItemTitle}>{item.title}</div>
             </button>
-            <button disabled={disabled} onClick={() => setIsModalOpen(true)} className={styles.deleteButton} aria-label="delete this chat history">
-                <Delete24Regular className={styles.deleteIcon} />
+            <button
+                type="button"
+                disabled={disabled}
+                onClick={() => onDelete(item.id)}
+                className={styles.deleteButton}
+                aria-label={t("history.deleteChat", { title: item.title })}
+            >
+                <Delete24Regular className={styles.deleteIcon} aria-hidden />
             </button>
-            <DeleteHistoryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onConfirm={handleDelete} />
-        </div>
-    );
-}
-
-function DeleteHistoryModal({ isOpen, onClose, onConfirm }: { isOpen: boolean; onClose: () => void; onConfirm: () => void }) {
-    if (!isOpen) return null;
-    const { t } = useTranslation();
-    return (
-        <div className={styles.modalOverlay}>
-            <div className={styles.modalContent}>
-                <h2 className={styles.modalTitle}>{t("history.deleteModalTitle")}</h2>
-                <p className={styles.modalDescription}>{t("history.deleteModalDescription")}</p>
-                <div className={styles.modalActions}>
-                    <DefaultButton onClick={onClose} className={styles.modalCancelButton}>
-                        {t("history.cancelLabel")}
-                    </DefaultButton>
-                    <DefaultButton onClick={onConfirm} className={styles.modalConfirmButton}>
-                        {t("history.deleteLabel")}
-                    </DefaultButton>
-                </div>
-            </div>
         </div>
     );
 }

@@ -5,11 +5,12 @@
     display: flex;
     flex-wrap: wrap;
     gap: 1.5rem;
-    flex: 1;
+    flex: 0 0 auto;
     justify-content: center;
 }
 
 .example {
+    height: 100%;
     word-break: break-word;
     background: rgba(255, 255, 255, 0.06);
     color: #f2f2f2;

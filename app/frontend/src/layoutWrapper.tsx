@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { AppContext } from "./appContext";
-import { getPublicStatus } from "./api";
-import { PublicStatus } from "./api/models";
+import { configApi, getPublicStatus } from "./api";
+import type { Config, PublicStatus } from "./api/models";
 import Layout from "./pages/layout/Layout";
 
 const LayoutWrapper = () => {
     const [publicStatus, setPublicStatus] = useState<PublicStatus | null>(null);
+    const [config, setConfig] = useState<Config | null>(null);
+    const [configError, setConfigError] = useState(false);
+    const [configAttempt, setConfigAttempt] = useState(0);
+    const retryConfig = useCallback(() => setConfigAttempt(attempt => attempt + 1), []);
     const refreshPublicStatus = useCallback(async () => {
         setPublicStatus(await getPublicStatus());
     }, []);
@@ -22,8 +26,24 @@ const LayoutWrapper = () => {
         return () => controller.abort();
     }, []);
 
+    useEffect(() => {
+        const controller = new AbortController();
+        setConfigError(false);
+        configApi(controller.signal)
+            .then(value => {
+                if (!controller.signal.aborted) setConfig(value);
+            })
+            .catch(error => {
+                if (!controller.signal.aborted) {
+                    console.error("Failed to fetch assistant capabilities", error);
+                    setConfigError(true);
+                }
+            });
+        return () => controller.abort();
+    }, [configAttempt]);
+
     return (
-        <AppContext.Provider value={{ publicStatus, refreshPublicStatus }}>
+        <AppContext.Provider value={{ publicStatus, refreshPublicStatus, config, configError, retryConfig }}>
             <Layout />
         </AppContext.Provider>
     );

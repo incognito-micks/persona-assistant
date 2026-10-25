@@ -12,6 +12,7 @@ The included Alex Morgan profile and projects are fictional. Replace them with c
 - One shared, validated profile for branding and both conversation modes.
 - Markdown knowledge supplied directly to the model: no Search index, embeddings, ingestion service, or document ACLs.
 - Browser-local visitor history and owner-authorized settings/operational analytics.
+- Collapsible desktop chat history, a keyboard-accessible mobile drawer, and a **New chat** action that preserves saved conversations.
 - An opinionated Container Apps deployment with managed identity, text/realtime/transcription model deployments, and Cosmos settings/shared usage storage.
 - Bounded public usage, explicit failures, and a deployment kill switch.
 
@@ -30,9 +31,19 @@ No Python or TypeScript edits are needed to change persona. Empty contact links 
 
 Once [owner access](docs/operations.md#owner-access) is configured, open `/#/admin` for the owner workspace. **Personalize** groups branding, conversation, and contact/availability settings, with a draft visitor preview. Edits are not published until **Save changes** succeeds; **Discard changes** reverts them, and leaving or signing out prompts before abandoning unsaved edits. **Usage** shows operational summaries, not private visitor conversations or verified unique people.
 
+Owner administration is intentionally not linked from public pages; bookmark `/#/admin`. When enabled, voice chat is available from the public header instead.
+
 If Microsoft sign-in fails before opening a popup, the error distinguishes a blocked popup from an active or interrupted sign-in. Close any existing Microsoft sign-in window, then use **Reset sign-in** to clear this site's saved Microsoft authentication state before trying again. This does not change assistant settings or browser-local chat history, and it does not sign you out of Microsoft on other sites.
 
 For private source files outside the checkout, set `PROFILE_PATH` and `KNOWLEDGE_DATA_DIR` when preparing the package. They select build inputs; they are not container filesystem paths. Never commit a private profile, credentials, or private knowledge. See [personalization and packaging](docs/personalization-and-packaging.md).
+
+## Chat Workspace
+
+When browser history is enabled, desktop history appears beside the conversation and can be collapsed. On smaller screens, **Open chat history** opens a focus-trapped drawer that closes with Escape. History stays in the same browser-local store; it is not an account or cloud-sync feature. Older conversations load in pages.
+
+**New chat** cancels a pending reply, clears the current conversation and unsent draft, and starts with fresh session state. It does not delete saved conversations. Deleting a saved conversation is a separate confirmed action; deleting the currently displayed conversation returns to a new chat.
+
+Conversation and history scroll independently. The composer and public contact links occupy their own layout space rather than covering one another. If browser storage fails, the received reply stays on screen and the UI reports that history could not be saved.
 
 ## Local Development
 

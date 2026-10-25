@@ -1,7 +1,9 @@
-import { ChatAppResponse } from "../../api";
+import type { ChatAppResponse } from "../../api";
 
 export type HistoryMetaData = { id: string; title: string; timestamp: number };
 export type Answers = [user: string, response: ChatAppResponse][];
+
+export const getHistoryTitle = (question: string): string => (question.length > 50 ? question.substring(0, 50) + "..." : question);
 
 export const enum HistoryProviderOptions {
     None = "none",

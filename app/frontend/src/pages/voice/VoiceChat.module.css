@@ -5,7 +5,10 @@
     align-items: center;
     justify-content: center;
     padding: 2rem;
-    max-height: calc(100vh - 6rem);
+    height: 100%;
+    min-height: 0;
+    min-width: 0;
+    width: 100%;
 }
 
 .title {
@@ -72,6 +75,7 @@
 
 .transcriptArea {
     flex: 1;
+    min-height: 0;
     width: 100%;
     max-width: 40rem;
     overflow-y: auto;

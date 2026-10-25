@@ -1,28 +1,44 @@
 .historyItem {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    justify-content: space-between;
-    padding: 4px 8px;
-    border-radius: 6px;
-    transition: background-color 0.2s;
+    min-width: 0;
+    padding: 0 0.25rem;
+    border-radius: 0.625rem;
+    color: var(--app-text);
 }
 
 .historyItem:hover {
-    background-color: #f3f4f6;
+    background: var(--app-hover);
+}
+
+.active {
+    background: var(--app-accent-soft);
+    box-shadow: inset 3px 0 var(--app-accent);
 }
 
 .historyItemButton {
-    flex-grow: 1;
-    text-align: left;
-    padding: 0;
-    margin-right: 4px;
+    min-width: 0;
+    min-height: 40px;
+    text-align: start;
+    padding: 0.5rem;
     background: none;
     border: none;
+    border-radius: 0.625rem;
+    color: inherit;
     cursor: pointer;
+    font: inherit;
 }
 
 .historyItemTitle {
-    font-size: 1rem;
+    font-size: max(0.875rem, 14px);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.active .historyItemTitle {
+    font-weight: 600;
 }
 
 .deleteIcon {
@@ -31,90 +47,38 @@
 }
 
 .deleteButton {
-    opacity: 0;
-    transition: opacity 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    min-height: 36px;
     background: none;
     border: none;
     cursor: pointer;
-    padding: 4px;
-    border-radius: 9999px;
-    color: #6b7280;
-}
-
-.historyItem:hover .deleteButton,
-.deleteButton:focus {
-    opacity: 1;
+    border-radius: 0.625rem;
+    color: var(--app-muted);
 }
 
 .deleteButton:hover {
-    color: #111827;
+    color: var(--app-danger);
+    background: var(--app-danger-soft);
 }
 
-.modalOverlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 50;
+.historyItemButton:focus-visible,
+.deleteButton:focus-visible {
+    outline: 2px solid var(--app-focus);
+    outline-offset: -2px;
 }
 
-.modalContent {
-    background-color: white;
-    padding: 24px;
-    border-radius: 8px;
-    box-shadow:
-        0 4px 6px -1px rgba(0, 0, 0, 0.1),
-        0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    max-width: 400px;
-    width: 100%;
+.historyItemButton:disabled,
+.deleteButton:disabled {
+    cursor: default;
+    color: var(--app-muted);
 }
 
-.modalTitle {
-    font-size: 20px;
-    font-weight: 600;
-    margin-top: 0px;
-    margin-bottom: 16px;
-}
-
-.modalDescription {
-    margin-top: 0px;
-    margin-bottom: 16px;
-}
-
-.modalActions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 16px;
-}
-
-.modalCancelButton,
-.modalConfirmButton {
-    padding: 8px 16px;
-    border-radius: 4px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-}
-
-.modalCancelButton {
-    background-color: #f3f4f6;
-    color: #374151;
-}
-
-.modalConfirmButton {
-    background-color: #ef4444;
-    color: white;
-}
-
-.modalCancelButton:hover {
-    background-color: #e5e7eb;
-}
-
-.modalConfirmButton:hover {
-    background-color: #dc2626;
+@media (pointer: coarse) {
+    .deleteButton {
+        width: 44px;
+        min-height: 44px;
+    }
 }

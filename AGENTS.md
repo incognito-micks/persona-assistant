@@ -34,6 +34,7 @@ Preserve unrelated staged/working changes and respect delegated file ownership. 
 - Public requests cannot override or inject owner system prompts. Persona configuration belongs to validated profile/settings, not visitor overrides.
 - Parse bundled prompt roles before rendering visitor-controlled values, and keep history as structured text messages. Preserve the prompt-directory boundary; never parse interpolated visitor text as message roles.
 - Preserve prompt budgeting, complete-turn trimming, and explicit mandatory-context errors. Never trim saved browser history.
+- Keep the chat viewport bounded: only message/history regions scroll, never position the composer over the contact footer. New chat must cancel pending work without deleting saved history; preserve pagination, stale-selection guards, mobile focus/Escape behavior, explicit storage errors, and direct owner access without public admin navigation. Test actual footer hit targets and pointer activation, not visibility alone.
 - Preserve SSRF destination/redirect validation and response-byte caps.
 - Realtime accepts only allowlisted audio events. Preserve cancellation, session/concurrency/daily admission limits, safe close reasons, and microphone cleanup.
 - Input transcription is a default Azure capability, not browser speech recognition. Forward bounded transcript text with validated `item_id`, correlate it to committed turns, and handle asynchronous ordering without duplicating replies or saving voice transcripts as text-chat history.

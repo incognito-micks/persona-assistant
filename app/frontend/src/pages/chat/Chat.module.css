@@ -1,32 +1,75 @@
 .container {
     flex: 1;
     display: flex;
-    flex-direction: column;
-    margin-top: 1rem;
-}
-
-.chatRoot {
-    flex: 1;
-    display: flex;
-}
-
-.chatContainer {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    min-height: 0;
+    min-width: 0;
     width: 100%;
-    max-height: calc(100vh - 7rem);
+    height: 100%;
+    overflow: hidden;
+}
+
+.chatColumn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+}
+
+.toolbar {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+}
+
+.toolbarButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0.5rem;
+    font: inherit;
+    font-size: max(0.875rem, 14px);
+    border: 1px solid transparent;
+    border-radius: 0.625rem;
+    background: transparent;
+    color: var(--app-text);
+    cursor: pointer;
+}
+
+.toolbarButton:hover {
+    background: var(--app-hover);
+}
+
+.toolbarButton:focus-visible,
+.conversationScroll:focus-visible {
+    outline: 2px solid var(--app-focus);
+    outline-offset: -2px;
+}
+
+.conversationScroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: auto;
+    overscroll-behavior: contain;
+    scrollbar-color: var(--app-border-strong) var(--app-background);
+    scrollbar-width: thin;
 }
 
 .chatEmptyState {
-    flex-grow: 1;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    max-height: 64rem;
-    padding-top: 1rem;
+    min-height: 100%;
+    max-width: 64.25rem;
+    margin: 0 auto;
+    padding: 1.5rem 1rem;
 }
 
 .chatEmptyStateAvatar {
@@ -34,19 +77,14 @@
     height: 80px;
     border-radius: 50%;
     object-fit: cover;
-    margin-bottom: 1.25rem;
-    box-shadow: 0 4px 20px rgba(108, 99, 255, 0.4);
+    margin-bottom: 1rem;
 }
 
 .chatEmptyStateTitle {
-    font-size: 2.75rem;
+    font-size: clamp(1.75rem, 4vw, 2.75rem);
     font-weight: 600;
-    margin-top: 0;
-    margin-bottom: 1rem;
-    background: linear-gradient(135deg, #6c63ff, #e040fb);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    margin: 0 0 1rem;
+    color: var(--app-focus);
     line-height: 1.3;
     text-align: center;
     overflow-wrap: anywhere;
@@ -54,152 +92,79 @@
 
 .welcomeMessage {
     max-width: 42rem;
-    margin: 0 1rem 1rem;
-    color: #c9c9de;
+    margin: 0 0 1rem;
+    color: var(--app-muted);
+    font-size: max(1rem, 14px);
     text-align: center;
     line-height: 1.5;
 }
 
 .privacyDisclosure {
-    margin: 0.75rem 0 0;
-    color: #b0b0c8;
-    font-size: 0.75rem;
+    margin: 0.5rem 0 0;
+    color: var(--app-muted);
+    font-size: max(0.75rem, 12px);
     line-height: 1.4;
     text-align: center;
 }
 
 .chatMessageStream {
-    flex-grow: 1;
-    max-height: 64rem;
-    width: 100%;
-    max-width: 64.25rem;
-    overflow-y: auto;
-    padding: 0 1.5rem;
     display: flex;
     flex-direction: column;
+    max-width: 64.25rem;
+    width: 100%;
+    margin: 0 auto;
+    padding: 1.25rem 1.5rem;
 }
 
-.chatMessageGpt {
-    margin-bottom: 1.25rem;
-    max-width: 100%;
-    display: flex;
-}
-
+.chatMessageGpt,
 .chatMessageGptMinWidth {
-    max-width: 90%;
+    display: flex;
+    min-width: 0;
+    max-width: 100%;
     margin-bottom: 1.25rem;
 }
 
 .chatInput {
-    position: sticky;
-    bottom: 0;
     flex: 0 0 auto;
-    padding: 1rem 1.5rem 1.5rem;
     width: 100%;
     max-width: 64.25rem;
-    background: transparent;
+    margin: 0 auto;
+    padding: 0.75rem 1.5rem;
 }
 
-.chatSettingsSeparator {
-    display: flex;
-    flex-direction: column;
-    margin-top: 0.9375rem;
+.historyWarning {
+    color: var(--app-warning);
+    font-size: max(0.875rem, 14px);
+    line-height: 1.4;
 }
 
-.loadingLogo {
-    font-size: 1.75rem;
-}
-
-.commandsSplitContainer {
-    display: flex;
-    justify-content: space-between;
-}
-
-.commandsContainer {
-    display: flex;
-    padding-left: 1rem;
-    padding-right: 1rem;
-    align-self: flex-end;
-}
-
-.commandButton {
-    margin-bottom: 1.25rem;
-}
-
-.voiceChatButton {
-    display: block;
-    margin: 1rem auto 0;
-    padding: 0.625rem 1.5rem;
-    border: none;
-    border-radius: 999px;
-    background: linear-gradient(135deg, #6c63ff, #5a54e0);
-    color: white;
-    font-size: 0.95rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.voiceChatButton:hover {
-    background: linear-gradient(135deg, #5a54e0, #4a44d0);
+.visuallyHidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 @media (max-width: 767px) {
-    .chatRoot {
-        flex-direction: column;
-    }
-
-    .chatEmptyStateTitle {
-        font-size: 2rem;
-    }
-
     .chatEmptyStateAvatar {
         width: 64px;
         height: 64px;
     }
 
     .chatMessageStream {
-        padding: 0 0.75rem;
+        padding: 1rem 0.75rem;
     }
 
     .chatInput {
-        padding: 0.5rem 0.75rem 1rem;
-    }
-}
-
-@media (min-width: 992px) {
-    .container {
-        margin-top: 1.25rem;
+        padding: 0.5rem 0.75rem;
     }
 
-    .chatEmptyState {
-        padding-top: 3.75rem;
-    }
-
-    .chatEmptyStateTitle {
-        font-size: 4rem;
-    }
-
-    .chatInput {
-        padding: 0.75rem 2rem 1.75rem;
-    }
-
-    .commandsSplitContainer {
-        padding-left: 1rem;
-    }
-
-    .commandsContainer {
-        padding-left: 0rem;
-        padding-right: 0rem;
-    }
-
-    .commandButton {
-        margin-right: 1.25rem;
-        margin-bottom: 1.25rem;
-    }
-
-    .chatMessageGpt {
-        max-width: 80%;
-        min-width: 31.25rem;
+    .newChatLabel {
+        display: none;
     }
 }

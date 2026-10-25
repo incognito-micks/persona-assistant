@@ -418,7 +418,8 @@ def test_home(page: Page, live_server_url: str):
     expect(page).to_have_title("Alex's AI assistant")
     expect(page.get_by_role("main").get_by_alt_text("Alex Morgan's avatar", exact=True)).to_be_visible()
     expect(page.get_by_placeholder("Type a question", exact=True)).to_be_visible()
-    expect(page.get_by_role("button", name="Clear chat")).to_be_disabled()
+    expect(page.get_by_role("button", name="New chat", exact=True)).to_be_enabled()
+    expect(page.get_by_role("link", name="Owner workspace", exact=True)).to_have_count(0)
     expect(page.get_by_role("button", name="Submit question")).to_be_disabled()
     expect(page.get_by_role("button", name="Developer settings")).to_have_count(0)
     expect(page.get_by_role("button", name="Open chat history")).to_have_count(0)
@@ -1053,7 +1054,8 @@ def test_owner_workspace_mobile_layout(page: Page, live_server_url: str, owner_s
 def test_owner_cached_sign_in_requires_authorized_settings(page: Page, live_server_url: str, owner_settings):
     page.goto(live_server_url)
     page.evaluate("window.ownerAuthMocks.cachedToken = 'browser-owner-id-token'")
-    page.get_by_role("banner").get_by_role("link", name="Owner workspace", exact=True).click()
+    expect(page.get_by_role("link", name="Owner workspace", exact=True)).to_have_count(0)
+    page.goto(f"{live_server_url}#/admin")
     expect(page.get_by_role("heading", name="Owner workspace", exact=True)).to_be_visible()
     expect(page.get_by_label("Owner Name", exact=True)).to_have_value(owner_settings["settings"]["owner_name"])
     assert page.evaluate("window.ownerAuthMocks.signIns") == 0
@@ -1223,10 +1225,10 @@ def test_nonstreaming_uses_chat_endpoint(page: Page, live_server_url: str, api_c
     assert captured[0]["body"]["session_state"] is None
     expect(page.get_by_role("button", name=re.compile("Speak answer"))).to_have_count(0)
     expect(page.get_by_text(re.compile(r"\bconfidence\b", re.IGNORECASE))).to_have_count(0)
-    page.get_by_role("button", name="Clear chat").click()
+    page.get_by_role("button", name="New chat", exact=True).click()
     expect(page.get_by_text(ANSWER, exact=True)).to_have_count(0)
     expect(page.get_by_text(QUESTION, exact=True)).to_have_count(0)
-    expect(page.get_by_role("button", name="Clear chat")).to_be_disabled()
+    expect(page.get_by_role("button", name="New chat", exact=True)).to_be_enabled()
 
 
 def test_config_failure_blocks_send_until_retry_succeeds(page: Page, live_server_url: str, api_config):
@@ -1331,8 +1333,8 @@ def test_markdown_renderer_loads_only_after_an_answer(page: Page, live_server_ur
     )
 
 
-def test_clear_pending_stream_cancels_stale_answer(page: Page, live_server_url: str, api_config):
-    api_config["showChatHistoryBrowser"] = True
+@pytest.fixture
+def pending_chat_stream(page: Page):
     page.add_init_script("""(() => {
             const originalFetch = window.fetch.bind(window);
             window.pendingChat = {requests: []};
@@ -1349,6 +1351,10 @@ def test_clear_pending_stream_cancels_stale_answer(page: Page, live_server_url: 
                 new TextEncoder().encode(JSON.stringify(event) + '\\n')
             );
         })();""")
+
+
+def test_clear_pending_stream_cancels_stale_answer(page: Page, live_server_url: str, api_config, pending_chat_stream):
+    api_config["showChatHistoryBrowser"] = True
     captured = mock_chat(page, [chat_response("Fresh conversation answer", session_state="fresh-session")])
     page.goto(live_server_url)
     send_question(page)
@@ -1361,9 +1367,9 @@ def test_clear_pending_stream_cancels_stale_answer(page: Page, live_server_url: 
         chat_response(),
     )
     expect_app_text(page, "Partial answer")
-    expect(page.get_by_role("button", name="Open chat history")).to_be_disabled()
+    expect(page.get_by_role("button", name="New chat", exact=True)).to_be_enabled()
     expect(page.get_by_role("button", name="Submit question")).to_be_disabled()
-    page.get_by_role("button", name="Clear chat").click()
+    page.get_by_role("button", name="New chat", exact=True).click()
     assert page.evaluate("window.pendingChat.signal.aborted") is True
     expect(page.get_by_text("Partial answer", exact=True)).to_have_count(0)
     send_question(page, "Start a fresh conversation")
@@ -1416,15 +1422,29 @@ def seed_history(page: Page, count: int, response=None, question=None) -> None:
     )
 
 
-def test_history_empty_panel_opens_and_closes(page: Page, live_server_url: str, api_config):
+def open_history(page: Page, refresh: bool = False) -> None:
+    heading = page.get_by_role("heading", name="Chat history", exact=True)
+    opener = page.get_by_role("button", name="Open chat history", exact=True)
+    expect(heading.or_(opener).first).to_be_visible()
+    if refresh and heading.is_visible():
+        page.get_by_role("button", name="Close chat history", exact=True).click()
+        expect(opener).to_be_visible()
+    if not heading.is_visible():
+        opener.click()
+    expect(heading).to_be_visible()
+
+
+def test_history_sidebar_is_open_on_desktop_and_can_collapse(page: Page, live_server_url: str, api_config):
     api_config["showChatHistoryBrowser"] = True
     page.goto(live_server_url)
-    page.get_by_role("button", name="Open chat history").click()
     expect(page.get_by_role("heading", name="Chat history", exact=True)).to_be_visible()
+    expect(page.get_by_role("complementary", name="Chat history", exact=True)).to_be_visible()
     expect(page.get_by_text("No chat history", exact=True)).to_be_visible()
     expect(page.get_by_role("button", name="Load more", exact=True)).to_have_count(0)
     page.get_by_role("button", name="Close chat history", exact=True).click()
     expect(page.get_by_role("heading", name="Chat history", exact=True)).to_have_count(0)
+    expect(page.get_by_role("button", name="Open chat history", exact=True)).to_be_focused()
+    open_history(page)
 
 
 def test_anonymous_history_saves_locally_and_survives_reload(
@@ -1436,20 +1456,17 @@ def test_anonymous_history_saves_locally_and_survives_reload(
     expect(page.get_by_text(re.compile("Chat history is saved on this browser"))).to_be_visible()
     send_question(page)
     expect_app_text(page, ANSWER)
-    page.get_by_role("button", name="Open chat history", exact=True).click()
+    open_history(page)
     expect(page.get_by_role("button", name=QUESTION, exact=True)).to_be_visible()
     page.reload()
-    page.get_by_role("button", name="Open chat history", exact=True).click()
+    open_history(page)
     page.get_by_role("button", name=QUESTION, exact=True).click()
     expect_app_text(page, ANSWER)
-    expect(page.get_by_text(QUESTION, exact=True)).to_be_visible()
+    expect(page.get_by_role("region", name="Chat", exact=True).get_by_text(QUESTION, exact=True)).to_be_visible()
     assert not any(request["path"].startswith("/chat_history") for request in browser_requests)
 
 
-def test_history_loading_pagination_and_reset(page: Page, live_server_url: str, api_config):
-    api_config["showChatHistoryBrowser"] = True
-    page.goto(live_server_url)
-    seed_history(page, 23)
+def hold_history_transactions(page: Page) -> None:
     page.evaluate("""() => new Promise((resolve, reject) => {
             const opening = indexedDB.open('chat-database', 1);
             opening.onerror = () => reject(opening.error);
@@ -1467,13 +1484,21 @@ def test_history_loading_pagination_and_reset(page: Page, live_server_url: str, 
                 keepAlive();
             };
         })""")
-    page.get_by_role("button", name="Open chat history").click()
-    expect(page.locator(".ms-Panel .ms-Spinner")).to_be_visible()
+
+
+def test_history_loading_pagination_and_reset(page: Page, live_server_url: str, api_config):
+    api_config["showChatHistoryBrowser"] = True
+    page.goto(live_server_url)
+    seed_history(page, 23)
+    hold_history_transactions(page)
+    open_history(page, refresh=True)
+    sidebar = page.get_by_role("complementary", name="Chat history", exact=True)
+    expect(sidebar.locator(".ms-Spinner")).to_be_visible()
     expect(page.get_by_text("No chat history", exact=True)).to_have_count(0)
     page.evaluate("window.releaseHistoryRead()")
     items = page.get_by_role("button", name=re.compile(r"^Saved conversation \d{2}$"))
     expect(items).to_have_count(20)
-    expect(page.locator(".ms-Panel .ms-Spinner")).to_have_count(0)
+    expect(sidebar.locator(".ms-Spinner")).to_have_count(0)
     expect(page.get_by_role("button", name="Saved conversation 20", exact=True)).to_have_count(0)
     page.get_by_role("button", name="Load more", exact=True).click()
     expect(items).to_have_count(23)
@@ -1481,7 +1506,7 @@ def test_history_loading_pagination_and_reset(page: Page, live_server_url: str, 
     page.get_by_role("button", name="Load more", exact=True).click()
     expect(page.get_by_role("button", name="Load more", exact=True)).to_have_count(0)
     page.get_by_role("button", name="Close chat history", exact=True).click()
-    page.get_by_role("button", name="Open chat history").click()
+    open_history(page)
     expect(items).to_have_count(20)
 
 
@@ -1490,11 +1515,14 @@ def test_history_selection_restores_messages_and_session(page: Page, live_server
     captured = mock_chat(page, [chat_response()])
     page.goto(live_server_url)
     seed_history(page, 1)
-    page.get_by_role("button", name="Open chat history").click()
+    open_history(page, refresh=True)
     page.get_by_role("button", name="Saved conversation 00", exact=True).click()
     expect(page.get_by_text("Saved question 00", exact=True)).to_be_visible()
     expect(page.get_by_text("Saved answer 00", exact=True)).to_be_visible()
-    expect(page.get_by_role("heading", name="Chat history", exact=True)).to_have_count(0)
+    expect(page.get_by_role("heading", name="Chat history", exact=True)).to_be_visible()
+    expect(page.get_by_role("button", name="Saved conversation 00", exact=True)).to_have_attribute(
+        "aria-current", "page"
+    )
     send_question(page)
     expect_app_text(page, ANSWER)
     assert captured[0]["body"]["session_state"] == "history-00"
@@ -1509,17 +1537,17 @@ def test_history_delete_requires_confirmation_and_persists(page: Page, live_serv
     api_config["showChatHistoryBrowser"] = True
     page.goto(live_server_url)
     seed_history(page, 1)
-    page.get_by_role("button", name="Open chat history").click()
-    page.get_by_role("button", name="delete this chat history", exact=True).click()
-    expect(page.get_by_role("heading", name="Delete chat history", exact=True)).to_be_visible()
+    open_history(page, refresh=True)
+    page.get_by_role("button", name="Delete conversation: Saved conversation 00", exact=True).click()
+    expect(page.get_by_role("heading", name="Delete conversation", exact=True)).to_be_visible()
     page.get_by_role("button", name="Cancel", exact=True).click()
     expect(page.get_by_role("button", name="Saved conversation 00", exact=True)).to_be_visible()
-    page.get_by_role("button", name="delete this chat history", exact=True).click()
+    page.get_by_role("button", name="Delete conversation: Saved conversation 00", exact=True).click()
     page.get_by_role("button", name="Delete", exact=True).click()
     expect(page.get_by_text("No chat history", exact=True)).to_be_visible()
     expect(page.get_by_role("button", name="Saved conversation 00", exact=True)).to_have_count(0)
     page.get_by_role("button", name="Close chat history", exact=True).click()
-    page.get_by_role("button", name="Open chat history").click()
+    open_history(page)
     expect(page.get_by_text("No chat history", exact=True)).to_be_visible()
 
 
@@ -1527,9 +1555,320 @@ def open_saved_answer(page: Page, live_server_url: str, api_config, response=Non
     api_config["showChatHistoryBrowser"] = True
     page.goto(live_server_url)
     seed_history(page, 1, response)
-    page.get_by_role("button", name="Open chat history").click()
+    open_history(page, refresh=True)
     page.get_by_role("button", name="Saved conversation 00", exact=True).click()
     expect(page.get_by_text("Saved question 00", exact=True)).to_be_visible()
+
+
+def click_contact_links(page: Page) -> None:
+    footer = page.get_by_role("contentinfo")
+    for name in ("Email the owner", "Book a call", "LinkedIn"):
+        link = footer.get_by_role("link", name=name, exact=True)
+        expect(link).to_be_visible()
+        assert link.evaluate("""element => {
+            const bounds = element.getBoundingClientRect();
+            return element.contains(document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2));
+        }"""), f"{name} is covered by another element"
+        before = page.evaluate("window.footerClicks.length")
+        link.click()
+        assert page.evaluate("window.footerClicks.length") == before + 1
+
+
+@pytest.mark.parametrize(("width", "height"), [(1280, 900), (1024, 600), (390, 844), (844, 390)])
+@pytest.mark.parametrize("streaming", [True, False], ids=["streaming", "nonstreaming"])
+def test_footer_links_remain_clickable_with_long_conversations(
+    page: Page, live_server_url: str, api_config, public_profile, pending_chat_stream, width, height, streaming
+):
+    api_config.update(showChatHistoryBrowser=True, showRealtimeVoice=True, streamingEnabled=streaming)
+    public_profile.update(
+        owner_email="owner@example.test",
+        calendar_url="https://calendar.example.test/book",
+        linkedin_url="https://social.example.test/owner",
+    )
+    page.set_viewport_size({"width": width, "height": height})
+    page.add_init_script("""window.footerClicks = [];
+        document.addEventListener('click', event => {
+            const link = event.target.closest('footer a');
+            if (link) {event.preventDefault(); window.footerClicks.push(link.getAttribute('href'));}
+        }, true);""")
+    answer = "\n\n".join(
+        f"Paragraph {index}: A long answer exercising the conversation scroll area." for index in range(80)
+    )
+    mock_chat(page, [chat_response(answer)])
+    page.goto(live_server_url)
+    expect(page.get_by_role("contentinfo").get_by_role("link")).to_have_count(3)
+    click_contact_links(page)
+    send_question(page)
+    if streaming:
+        page.wait_for_function("window.pendingChat.controller !== undefined")
+        page.evaluate(
+            """response => {
+                window.pushChatEvent({context: response.context, session_state: response.session_state, delta: {role: 'assistant'}});
+                window.pushChatEvent({delta: {content: response.message.content}});
+            }""",
+            chat_response(answer),
+        )
+    expect(page.get_by_text("Paragraph 79:", exact=False)).to_be_visible()
+    if streaming:
+        expect(page.get_by_role("button", name="Submit question", exact=True)).to_be_disabled()
+    click_contact_links(page)
+    if streaming:
+        page.evaluate("window.pendingChat.controller.close()")
+    chat = page.get_by_role("region", name="Chat", exact=True)
+    assert chat.evaluate("element => element.scrollHeight > element.clientHeight")
+    chat.evaluate("element => {element.scrollTop = 0;}")
+    click_contact_links(page)
+    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+    assert page.evaluate("document.documentElement.scrollHeight <= innerHeight")
+    capture_screenshot(page, f"chat-footer-{width}-{height}-{streaming}")
+    page.get_by_role("button", name="New chat", exact=True).click()
+    expect(page.get_by_text("Paragraph 79:", exact=False)).to_have_count(0)
+    click_contact_links(page)
+
+
+def test_wide_answers_scroll_inside_chat_without_covering_contacts(
+    page: Page, live_server_url: str, api_config, public_profile
+):
+    api_config["streamingEnabled"] = False
+    public_profile.update(
+        owner_email="owner@example.test",
+        calendar_url="https://calendar.example.test",
+        linkedin_url="https://social.example.test",
+    )
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.add_init_script("""window.footerClicks = [];
+        document.addEventListener('click', event => {
+            const link = event.target.closest('footer a');
+            if (link) {event.preventDefault(); window.footerClicks.push(link.getAttribute('href'));}
+        }, true);""")
+    line = "wide_content_" * 80
+    mock_chat(page, [chat_response(f"```text\n{line}\n```")])
+    page.goto(live_server_url)
+    send_question(page)
+    expect(page.locator("pre")).to_be_visible()
+    assert page.locator("pre").inner_text().strip() == line
+    chat = page.get_by_role("region", name="Chat", exact=True)
+    assert chat.evaluate("element => element.scrollWidth > element.clientWidth")
+    chat.evaluate("element => {element.scrollLeft = element.scrollWidth;}")
+    assert chat.evaluate("element => element.scrollLeft > 0")
+    assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+    click_contact_links(page)
+    page.get_by_role("button", name="New chat", exact=True).click()
+    assert chat.evaluate("element => element.scrollLeft") == 0
+
+
+def test_history_sidebar_contrast_active_selection_and_delete_dialog(page: Page, live_server_url: str, api_config):
+    api_config["showChatHistoryBrowser"] = True
+    page.goto(live_server_url)
+    seed_history(page, 2)
+    open_history(page, refresh=True)
+    sidebar = page.get_by_role("complementary", name="Chat history", exact=True)
+    title = sidebar.get_by_role("button", name="Saved conversation 00", exact=True)
+    label = title.locator('[class*="historyItemTitle"]')
+    assert_text_contrast(label)
+    title.hover()
+    assert_text_contrast(label)
+    title.click()
+    expect(title).to_have_attribute("aria-current", "page")
+    assert_text_contrast(label)
+    sidebar.get_by_role("button", name="Delete conversation: Saved conversation 00", exact=True).click()
+    dialog = page.get_by_role("dialog", name="Delete conversation", exact=True)
+    expect(dialog).to_have_attribute("aria-modal", "true")
+    heading = dialog.get_by_role("heading", name="Delete conversation", exact=True)
+    expect(heading).to_be_visible()
+    assert_text_contrast(heading)
+    assert_text_contrast(dialog.get_by_role("button", name="Delete", exact=True))
+    results = Axe().run(page)
+    assert results.violations_count == 0, results.generate_report()
+    capture_screenshot(page, "chat-history-delete-dialog")
+    page.keyboard.press("Escape")
+    expect(heading).to_have_count(0)
+    expect(title).to_be_visible()
+    expect(title).to_have_attribute("aria-current", "page")
+
+
+def test_new_chat_preserves_saved_conversation_and_clears_draft(page: Page, live_server_url: str, api_config):
+    api_config["showChatHistoryBrowser"] = True
+    captured = mock_chat(
+        page,
+        [
+            chat_response("First saved reply", "first-conversation"),
+            chat_response("Second saved reply", "second-conversation"),
+        ],
+    )
+    page.goto(live_server_url)
+    send_question(page, "First saved question")
+    expect_app_text(page, "First saved reply")
+    first = page.get_by_role("button", name="First saved question", exact=True)
+    expect(first).to_have_attribute("aria-current", "page")
+    page.get_by_role("textbox", name="Your message", exact=True).fill("An unsent draft")
+    page.get_by_role("button", name="New chat", exact=True).click()
+    expect(page.get_by_role("textbox", name="Your message", exact=True)).to_have_value("")
+    expect(first).to_be_visible()
+    assert first.get_attribute("aria-current") is None
+    send_question(page, "Second saved question")
+    expect_app_text(page, "Second saved reply")
+    assert captured[1]["body"]["session_state"] is None
+    assert captured[1]["body"]["messages"] == [{"role": "user", "content": "Second saved question"}]
+    first.click()
+    expect_app_text(page, "First saved reply")
+    expect(first).to_have_attribute("aria-current", "page")
+
+
+def test_deleting_active_history_starts_new_chat_without_erasing_other_chats(
+    page: Page, live_server_url: str, api_config
+):
+    api_config["showChatHistoryBrowser"] = True
+    page.goto(live_server_url)
+    seed_history(page, 2)
+    open_history(page, refresh=True)
+    page.get_by_role("button", name="Saved conversation 00", exact=True).click()
+    expect(page.get_by_text("Saved answer 00", exact=True)).to_be_visible()
+    page.get_by_role("button", name="Delete conversation: Saved conversation 00", exact=True).click()
+    dialog = page.get_by_role("dialog", name="Delete conversation", exact=True)
+    dialog.get_by_role("button", name="Delete", exact=True).click()
+    expect(page.get_by_text("Saved answer 00", exact=True)).to_have_count(0)
+    expect(page.get_by_role("button", name="Saved conversation 00", exact=True)).to_have_count(0)
+    expect(page.get_by_role("button", name="Saved conversation 01", exact=True)).to_be_visible()
+    page.reload()
+    open_history(page)
+    expect(page.get_by_role("button", name="Saved conversation 00", exact=True)).to_have_count(0)
+    expect(page.get_by_role("button", name="Saved conversation 01", exact=True)).to_be_visible()
+
+
+def test_mobile_history_drawer_focus_escape_and_restore(page: Page, live_server_url: str, api_config):
+    api_config["showChatHistoryBrowser"] = True
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.goto(live_server_url)
+    seed_history(page, 1)
+    opener = page.get_by_role("button", name="Open chat history", exact=True)
+    expect(opener).to_be_visible()
+    expect(page.get_by_role("heading", name="Chat history", exact=True)).to_have_count(0)
+    opener.click()
+    heading = page.get_by_role("heading", name="Chat history", exact=True)
+    expect(heading).to_be_visible()
+    assert_text_contrast(page.get_by_role("button", name="Close chat history", exact=True))
+    expect(page.get_by_role("button", name="New chat", exact=True)).to_be_focused()
+    for attempt in range(8):
+        page.keyboard.press("Tab")
+        assert page.evaluate("document.querySelector('.ms-Panel-main').contains(document.activeElement)")
+    results = Axe().run(page)
+    assert results.violations_count == 0, results.generate_report()
+    capture_screenshot(page, "chat-mobile-history")
+    page.keyboard.press("Escape")
+    expect(heading).to_have_count(0)
+    expect(opener).to_be_focused()
+    opener.click()
+    page.get_by_role("button", name="Saved conversation 00", exact=True).click()
+    expect(page.get_by_text("Saved answer 00", exact=True)).to_be_visible()
+    expect(heading).to_have_count(0)
+    expect(opener).to_be_visible()
+
+
+def test_mobile_history_scroll_keeps_navigation_and_storage_notice_fixed(page: Page, live_server_url: str, api_config):
+    api_config["showChatHistoryBrowser"] = True
+    page.set_viewport_size({"width": 390, "height": 600})
+    page.goto(live_server_url)
+    seed_history(page, 30)
+    open_history(page)
+    history = page.locator('[class*="historyList"]')
+    expect(page.get_by_role("button", name="Saved conversation 00", exact=True)).to_be_visible()
+    new_chat = page.get_by_role("button", name="New chat", exact=True)
+    close = page.get_by_role("button", name="Close chat history", exact=True)
+    notice = page.get_by_text(
+        "Chat history is saved on this browser. You can delete conversations in Chat history.", exact=True
+    )
+    positions = [element.bounding_box() for element in (new_chat, close, notice)]
+    assert history.evaluate("element => element.scrollHeight > element.clientHeight")
+    assert positions[-1]["y"] + positions[-1]["height"] > 560
+    assert_text_contrast(close)
+    history.evaluate("element => {element.scrollTop = element.scrollHeight;}")
+    page.get_by_role("button", name="Load more", exact=True).click()
+    expect(page.get_by_role("button", name="Saved conversation 29", exact=True)).to_have_count(1)
+    for element, before in zip((new_chat, close, notice), positions):
+        after = element.bounding_box()
+        assert abs(after["y"] - before["y"]) < 1
+        assert after["y"] + after["height"] <= 600
+    capture_screenshot(page, "chat-mobile-history-long")
+
+
+def test_history_read_failure_has_explicit_reload_action(page: Page, live_server_url: str, api_config):
+    api_config["showChatHistoryBrowser"] = True
+    page.add_init_script("""(() => {
+        const original = IDBIndex.prototype.openCursor;
+        IDBIndex.prototype.openCursor = function(...args) {
+            if (!window.allowHistoryRead) throw new Error('Synthetic storage failure');
+            return original.apply(this, args);
+        };
+    })();""")
+    page.goto(live_server_url)
+    notice = page.get_by_role("alert")
+    expect(
+        notice.get_by_text("Chat history could not be accessed. Reload it or try the action again.", exact=True)
+    ).to_be_visible()
+    expect(page.get_by_text("No chat history", exact=True)).to_have_count(0)
+    page.evaluate("window.allowHistoryRead = true")
+    notice.get_by_role("button", name="Reload history", exact=True).click()
+    expect(page.get_by_text("No chat history", exact=True)).to_be_visible()
+    expect(notice).to_have_count(0)
+
+
+def test_history_save_failure_preserves_received_answer(page: Page, live_server_url: str, api_config):
+    api_config["showChatHistoryBrowser"] = True
+    page.add_init_script("""(() => {
+        const original = IDBObjectStore.prototype.add;
+        IDBObjectStore.prototype.add = function(...args) {
+            if (this.name === 'chat-history') throw new Error('Synthetic save failure');
+            return original.apply(this, args);
+        };
+    })();""")
+    mock_chat(page, [chat_response()])
+    page.goto(live_server_url)
+    send_question(page)
+    expect_app_text(page, ANSWER)
+    expect(
+        page.get_by_role("status").get_by_text(
+            "The reply was received, but this conversation could not be saved on this browser. It is still available on screen.",
+            exact=True,
+        )
+    ).to_be_visible()
+    expect(page.get_by_role("button", name=QUESTION, exact=True)).to_have_count(0)
+
+
+@pytest.mark.parametrize("operation", ["select", "delete"])
+def test_new_chat_ignores_stale_history_actions(page: Page, live_server_url: str, api_config, operation):
+    api_config["showChatHistoryBrowser"] = True
+    captured = mock_chat(page, [chat_response("Fresh reply after pending history action", "fresh-history-session")])
+    page.goto(live_server_url)
+    seed_history(page, 1)
+    open_history(page, refresh=True)
+    saved = page.get_by_role("button", name="Saved conversation 00", exact=True)
+    if operation == "delete":
+        saved.click()
+        expect(page.get_by_text("Saved answer 00", exact=True)).to_be_visible()
+    page.get_by_role("textbox", name="Your message", exact=True).fill("A draft in the prior conversation")
+    hold_history_transactions(page)
+    if operation == "select":
+        saved.click()
+    else:
+        page.get_by_role("button", name="Delete conversation: Saved conversation 00", exact=True).click()
+        page.get_by_role("dialog", name="Delete conversation", exact=True).get_by_role(
+            "button", name="Delete", exact=True
+        ).click()
+    expect(page.get_by_role("button", name="Submit question", exact=True)).to_be_disabled()
+    page.get_by_role("button", name="New chat", exact=True).click()
+    send_question(page, "A fresh question")
+    expect_app_text(page, "Fresh reply after pending history action")
+    page.evaluate("window.releaseHistoryRead()")
+    fresh = page.get_by_role("button", name="A fresh question", exact=True)
+    expect(fresh).to_have_attribute("aria-current", "page")
+    expect(
+        page.get_by_role("region", name="Chat", exact=True).get_by_text("Saved answer 00", exact=True)
+    ).to_have_count(0)
+    if operation == "delete":
+        expect(saved).to_have_count(0)
+    assert captured[0]["body"]["session_state"] is None
+    assert captured[0]["body"]["messages"] == [{"role": "user", "content": "A fresh question"}]
 
 
 def test_legacy_speech_flags_do_not_restore_redundant_controls(page: Page, live_server_url: str, api_config):
@@ -1649,7 +1988,7 @@ def test_anonymous_voice_entry_waits_for_explicit_action(
     ):
         api_config.pop(legacy_flag, None)
     page.goto(live_server_url)
-    page.get_by_role("button", name="Try voice chat", exact=True).click()
+    page.get_by_role("link", name="Try voice chat", exact=True).click()
     expect(page.get_by_role("button", name="Start Voice Chat", exact=True)).to_be_enabled()
     expect(page.get_by_text(re.compile("You are speaking with an AI, not the owner"))).to_be_visible()
     expect(
@@ -2230,11 +2569,11 @@ def test_responsive_home_and_conversation(
         "Please describe your recent projects, the engineering trade-offs you made, and how you measured their impact."
     )
     seed_history(page, 1, chat_response(answer), question)
-    page.get_by_role("button", name="Open chat history").click()
+    open_history(page, refresh=True)
     page.get_by_role("button", name="Saved conversation 00", exact=True).click()
     expect(page.get_by_text(question, exact=True)).to_be_visible()
     expect(page.get_by_text(answer, exact=True)).to_be_visible()
-    expect(page.get_by_role("button", name="Try voice chat", exact=True)).to_be_enabled()
+    expect(page.get_by_role("link", name="Try voice chat", exact=True)).to_be_visible()
     page.wait_for_function("""() => [...document.querySelectorAll('[class*="answerWrapper"]')].every(element => {
             const transform = getComputedStyle(element.parentElement).transform;
             return transform === 'none' || Math.abs(new DOMMatrixReadOnly(transform).m42) < 0.1;
