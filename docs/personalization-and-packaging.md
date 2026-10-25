@@ -39,6 +39,19 @@ Editing the bundled sample is fine for local experimentation. Restore fictional 
 
 Do not put secrets in either public or private persona inputs: the selected knowledge and profile can be supplied to model services and disclosed to visitors.
 
+## Template Asset Provenance And Licensing
+
+The maintainer confirmed on 2026-10-25 that the generic assets below were created for this project and are available for reuse under the [MIT license](../LICENSE):
+
+| Asset | Declared origin | Terms |
+| --- | --- | --- |
+| [avatar.svg](../app/frontend/public/avatar.svg) | Project-created fictional profile illustration | MIT |
+| [social-preview.png](../app/frontend/public/social-preview.png) | Project-created generic social preview | MIT |
+
+This records the maintainer's declaration, not an independent authorship or third-party-rights audit. The fictional [profile](../profile.json) and [example knowledge](../data/work) remain reusable MIT sample content.
+
+Personalized forks should explicitly identify any personal text/media with separate terms, document their provenance, and distinguish them from software, general documentation, and reusable examples. Keep the MIT text and upstream notice intact; do not retroactively cancel earlier grants or claim copyright over facts. Public GitHub hosting also permits viewing/forking under its platform terms. A new notice is not a confidentiality control or a guarantee that historical material cannot be reused.
+
 ## Prepare A Deployment Package
 
 From the repository root with dependencies installed:

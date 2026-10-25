@@ -55,6 +55,8 @@ Generated backend profile/data/static assets are not hand-edited or committed. M
 
 Use fictional fixtures/media. Review publication rights and working/staged trees separately; ignore rules do not unstage or erase private material.
 
+Preserve the unchanged [MIT license](LICENSE) and the [project-created template asset declaration](docs/personalization-and-packaging.md#template-asset-provenance-and-licensing). A personalized fork may scope personal text/media separately, but must not impose those restrictions on the MIT code, erase prior grants, or claim rights it does not hold.
+
 ## Validation
 
 Use Python 3.11 or newer, the repository `.venv`, existing tooling, and mocked services. Run each command block from the repository root; type-check subshells preserve that directory. Run a focused test first.

@@ -18,7 +18,7 @@ The included Alex Morgan profile and projects are fictional. Replace them with c
 
 This project descends from [Azure Search OpenAI Demo](https://github.com/Azure-Samples/azure-search-openai-demo). It is an independent adaptation, not a Microsoft-operated service. Preserve the upstream [MIT license](LICENSE) when redistributing it.
 
-The MIT license covers this project's source, not every external component or service it uses. Third-party dependencies and assets retain their own licenses, and Azure services/models remain subject to their service terms and charges. Review those terms before redistributing bundled components or container images.
+The application code, general technical documentation, fictional examples, and project-created generic images are available under the MIT license; see the [template asset declaration](docs/personalization-and-packaging.md#template-asset-provenance-and-licensing). Personal content added to a deliberately personalized fork may have separate, explicitly scoped terms. Third-party components retain their own licenses, and Azure services/models remain subject to their service terms and charges. Review those terms before redistributing bundled components or container images.
 
 ## Personalize
 
