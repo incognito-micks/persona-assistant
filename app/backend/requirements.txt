@@ -59,7 +59,7 @@ cffi==2.1.1
     # via cryptography
 charset-normalizer==3.3.2
     # via requests
-click==8.3.0
+click==8.5.0
     # via
     #   flask
     #   quart
@@ -126,7 +126,7 @@ jiter==0.11.0
     # via openai
 markdown-it-py==3.0.0
     # via rich
-markupsafe==3.0.3
+markupsafe==3.0.4
     # via
     #   flask
     #   jinja2
@@ -292,7 +292,7 @@ python-dotenv==1.2.4
     # via -r requirements.in
 pyyaml==6.0.2
     # via prompty
-quart==0.20.0
+quart==0.23.1
     # via
     #   -r requirements.in
     #   quart-cors
